@@ -72,11 +72,10 @@ def test_dataclasses_construct():
 @pytest.mark.parametrize(
     "call",
     [
-        lambda: releases.list_releases("soliplex", "soliplex"),
         lambda: build.discover_skills(Path("skills")),
         lambda: cli.main([]),
     ],
-    ids=["list_releases", "discover_skills", "cli"],
+    ids=["discover_skills", "cli"],
 )
 def test_stubs_raise_not_implemented(call):
     with pytest.raises(NotImplementedError):
