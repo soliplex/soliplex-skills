@@ -82,23 +82,6 @@ def test_stubs_raise_not_implemented(call):
         call()
 
 
-def test_skill_versions_methods_raise_not_implemented():
-    spec = versions.SkillSpec(
-        owner="soliplex",
-        repo="soliplex-template",
-        skill_name="soliplex-template",
-        asset_tarball="soliplex-template-skill.tar.gz",
-        pointer_tag="template-skill-latest",
-        rolling_re=re.compile(
-            r"^template-skill-\d{4}\.\d{2}\.\d{2}-[0-9a-f]+$"
-        ),
-    )
-    sv = versions.SkillVersions(spec)
-
-    with pytest.raises(NotImplementedError):
-        sv.list()
-
-
 def test_published_skill_download_base_raises():
     pub = install.PublishedSkill(
         name="soliplex-docs",
