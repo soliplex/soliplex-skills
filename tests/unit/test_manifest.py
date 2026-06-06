@@ -17,6 +17,14 @@ _PAYLOAD = {
 }
 
 
+def test_release_manifest_construction():
+    man = manifest.ReleaseManifest(**_PAYLOAD)
+
+    assert man.tag == _PAYLOAD["tag"]
+    assert man.source_commit == "cc9a290"
+    assert man.asset_url == _PAYLOAD["asset_url"]
+
+
 def test_from_json_parses_text():
     raw = json.dumps(_PAYLOAD)
 

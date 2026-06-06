@@ -77,6 +77,20 @@ def _publish(make_skill, make_tarball, tmp_path, *, commit, files):
     return mapping, tag
 
 
+def test_skill_spec_optional_defaults():
+    spec = versions.SkillSpec(
+        owner="soliplex",
+        repo="soliplex",
+        skill_name="soliplex-docs",
+        asset_tarball="soliplex-docs-skill.tar.gz",
+        pointer_tag="docs-latest",
+        rolling_re=_ROLLING_RE,
+    )
+
+    assert spec.compare_scope == "tree"
+    assert spec.pointer_manifest == "latest.json"
+
+
 def test_list_excludes_pointer_and_assetless_sorts_newest_first(monkeypatch):
     raw = [
         _release("docs-latest", date="2026-06-01"),
