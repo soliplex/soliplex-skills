@@ -50,17 +50,15 @@ def make_skill(tmp_path: Path):
     def _make(
         name: str = "demo-skill",
         *,
-        commit: str = "abc1234",
+        commit: str | None = "abc1234",
         files: abc.Mapping[str, str] | None = None,
         parent: Path | None = None,
     ) -> Path:
         root = (parent or tmp_path) / name
         root.mkdir(parents=True, exist_ok=True)
-        front = [
-            f"name: {name}",
-            "metadata:",
-            f'  source_commit: "{commit}"',
-        ]
+        front = [f"name: {name}"]
+        if commit is not None:
+            front += ["metadata:", f'  source_commit: "{commit}"']
         (root / "SKILL.md").write_text(
             render_skill_md(front), encoding="utf-8"
         )

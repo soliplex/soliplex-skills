@@ -11,7 +11,6 @@ real behavioral test.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
@@ -72,10 +71,9 @@ def test_dataclasses_construct():
 @pytest.mark.parametrize(
     "call",
     [
-        lambda: build.discover_skills(Path("skills")),
         lambda: cli.main([]),
     ],
-    ids=["discover_skills", "cli"],
+    ids=["cli"],
 )
 def test_stubs_raise_not_implemented(call):
     with pytest.raises(NotImplementedError):
