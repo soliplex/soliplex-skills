@@ -255,6 +255,38 @@ class SkillVersions:
                 name_only=name_only,
             )
 
+    def diff_published(
+        self,
+        left: str,
+        right: str,
+        *,
+        name_only: bool = False,
+    ) -> int:
+        """Show how two *published* versions differ from each other.
+
+        Neither side need be installed: *left* and *right* are each a concrete
+        tag or the literal ``"latest"`` (expanded via the pointer manifest).
+        Honors :attr:`SkillSpec.compare_scope`. Returns ``0`` when identical,
+        ``1`` when differences were reported.
+        """
+        with (
+            _archive.temp_dest() as dest_left,
+            _archive.temp_dest() as dest_right,
+        ):
+            left_tag, left_url, left_sha = self._resolve_target(left)
+            right_tag, right_url, right_sha = self._resolve_target(right)
+            left_root = self._fetch_skill_root(left_url, left_sha, dest_left)
+            right_root = self._fetch_skill_root(
+                right_url, right_sha, dest_right
+            )
+            return _diff_trees(
+                self._read_for_scope(left_root),
+                self._read_for_scope(right_root),
+                left_label=left_tag,
+                right_label=right_tag,
+                name_only=name_only,
+            )
+
     def upgrade(
         self,
         installed_path: Path,

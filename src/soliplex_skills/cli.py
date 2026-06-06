@@ -27,6 +27,29 @@ from soliplex_skills import config
 from soliplex_skills.versions import SkillSpec
 from soliplex_skills.versions import SkillVersions
 
+_DIFF_DESCRIPTION = """\
+Compare an installed skill against a published version, or two
+published versions against each other.
+
+With a single TARGET (default 'latest'), the skill at --skill-dir is
+compared to that published version. Given two tags (TARGET OTHER),
+those two published versions are compared to each other instead. What
+is compared depends on the skill's compare_scope: the whole skill tree,
+or only the references/ Markdown.
+
+The diff is written to stdout: a per-file summary ('- removed',
+'+ added', '~ changed'), followed by a unified diff of each changed
+file unless --name-only is passed. 'No differences.' is printed when
+the two sides match.\
+"""
+
+_DIFF_EPILOG = """\
+exit status:
+  0  the two sides are identical
+  1  differences were found (and printed)
+  2  invalid invocation (no --skill-dir and no second tag)\
+"""
+
 
 def _add_spec_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
@@ -70,9 +93,19 @@ def _cmd_list(args: argparse.Namespace) -> int:
 
 
 def _cmd_diff(args: argparse.Namespace) -> int:
-    return SkillVersions(_resolve_spec(args)).diff(
-        args.skill_dir, args.target, name_only=args.name_only
-    )
+    versions = SkillVersions(_resolve_spec(args))
+    if args.other is not None:
+        return versions.diff_published(
+            args.target, args.other, name_only=args.name_only
+        )
+    if args.skill_dir is None:
+        print(
+            "soliplex-skills: error: diff needs --skill-dir (or a second "
+            "tag to compare two published versions).",
+            file=sys.stderr,
+        )
+        return 2
+    return versions.diff(args.skill_dir, args.target, name_only=args.name_only)
 
 
 def _cmd_upgrade(args: argparse.Namespace) -> int:
@@ -113,17 +146,39 @@ def _build_parser() -> argparse.ArgumentParser:
     p_list.set_defaults(func=_cmd_list)
 
     p_diff = sub.add_parser(
-        "diff", help="Diff an installed skill against a published version."
+        "diff",
+        help="Diff an installed skill against a published version, or two "
+        "published versions against each other.",
+        description=_DIFF_DESCRIPTION,
+        epilog=_DIFF_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     _add_spec_args(p_diff)
     p_diff.add_argument(
         "--skill-dir",
-        required=True,
         type=Path,
-        help="Installed skill root (the directory holding SKILL.md).",
+        help="Installed skill root (the directory holding SKILL.md); "
+        "required unless two published tags are given.",
     )
-    p_diff.add_argument("target", nargs="?", default="latest")
-    p_diff.add_argument("--name-only", action="store_true")
+    p_diff.add_argument(
+        "target",
+        nargs="?",
+        default="latest",
+        help="Published version to compare against: a tag, or 'latest' "
+        "(the default).",
+    )
+    p_diff.add_argument(
+        "other",
+        nargs="?",
+        help="Second published tag; when given, compare TARGET vs OTHER "
+        "instead of the installed skill.",
+    )
+    p_diff.add_argument(
+        "--name-only",
+        action="store_true",
+        help="List only the changed/added/removed files; omit the unified "
+        "diff.",
+    )
     p_diff.set_defaults(func=_cmd_diff)
 
     p_up = sub.add_parser(

@@ -50,6 +50,7 @@ import versions` then `versions.SkillVersions(...)`). The headline types are:
 | `SkillSpec(owner, repo, skill_name, asset_tarball, pointer_tag, rolling_re, compare_scope="tree", pointer_manifest="latest.json")` | per-skill configuration |
 | `SkillVersions(spec).list(*, kind=None)` | published versions, newest first |
 | `SkillVersions(spec).diff(installed_path, target="latest", *, name_only=False)` | installed vs. published |
+| `SkillVersions(spec).diff_published(left, right, *, name_only=False)` | two published versions vs. each other |
 | `SkillVersions(spec).upgrade(installed_path, target="latest", *, force=False, dry_run=False)` | install a version in place |
 | `CompareScope` | `"tree"` (whole skill) or `"references"` (docs only) |
 

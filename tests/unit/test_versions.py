@@ -290,6 +290,79 @@ def test_diff_references_scope_ignores_non_references(
     assert rc == 0
 
 
+def _publish_tag(make_skill, make_tarball, tmp_path, *, tag, commit, files):
+    """Publish a tarball addressable by ``<tag>/<asset>`` (no pointer)."""
+    skill = make_skill(
+        "soliplex-docs", commit=commit, files=files, parent=tmp_path / tag
+    )
+    tarball = make_tarball(skill, tmp_path / f"{tag}.tar.gz")
+    return {f"{tag}/soliplex-docs-skill.tar.gz": tarball.read_bytes()}
+
+
+def test_diff_published_reports_changes(
+    monkeypatch, tmp_path, make_skill, make_tarball, capsys
+):
+    mapping = {
+        **_publish_tag(
+            make_skill,
+            make_tarball,
+            tmp_path,
+            tag="docs-2026.05.20-aaaaaaa",
+            commit="aaaaaaa",
+            files={"references/a.md": "old\n"},
+        ),
+        **_publish_tag(
+            make_skill,
+            make_tarball,
+            tmp_path,
+            tag="docs-2026.05.29-bbbbbbb",
+            commit="bbbbbbb",
+            files={"references/a.md": "new\n"},
+        ),
+    }
+    monkeypatch.setattr(releases, "fetch", _serve(mapping))
+
+    rc = versions.SkillVersions(_spec("references")).diff_published(
+        "docs-2026.05.20-aaaaaaa", "docs-2026.05.29-bbbbbbb"
+    )
+
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "~ changed: a.md" in out
+
+
+def test_diff_published_identical_returns_zero(
+    monkeypatch, tmp_path, make_skill, make_tarball, capsys
+):
+    files = {"references/a.md": "same\n"}
+    mapping = {
+        **_publish_tag(
+            make_skill,
+            make_tarball,
+            tmp_path,
+            tag="docs-2026.05.20-aaaaaaa",
+            commit="aaaaaaa",
+            files=files,
+        ),
+        **_publish_tag(
+            make_skill,
+            make_tarball,
+            tmp_path,
+            tag="docs-2026.05.29-bbbbbbb",
+            commit="bbbbbbb",
+            files=files,
+        ),
+    }
+    monkeypatch.setattr(releases, "fetch", _serve(mapping))
+
+    rc = versions.SkillVersions(_spec("references")).diff_published(
+        "docs-2026.05.20-aaaaaaa", "docs-2026.05.29-bbbbbbb"
+    )
+
+    assert rc == 0
+    assert "No differences." in capsys.readouterr().out
+
+
 def test_upgrade_installs_new_commit(
     monkeypatch, tmp_path, make_skill, make_tarball
 ):

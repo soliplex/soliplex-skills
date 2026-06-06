@@ -36,6 +36,13 @@ python scripts/skill_versions.py diff v0.68     # vs. a specific tag
 python scripts/skill_versions.py diff --name-only
 ```
 
+Pass **two** published tags to compare them against each other instead of your
+installed copy (handy for reviewing what changed between builds):
+
+```console
+python scripts/skill_versions.py diff v0.67 v0.68
+```
+
 What gets compared depends on the skill's **compare scope**:
 
 - `references` — only the `references/` Markdown (used by `soliplex-docs`,
@@ -70,6 +77,7 @@ repeat the constants on the command line:
 ```console
 soliplex-skills list --skill soliplex-docs
 soliplex-skills diff --skill soliplex-docs --skill-dir path/to/installed
+soliplex-skills diff --skill soliplex-docs v0.67 v0.68
 soliplex-skills upgrade --skill soliplex-docs --skill-dir path/to/installed --dry-run
 ```
 
