@@ -1,0 +1,26 @@
+name: Build & publish soliplex-skills to pypi
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Mint a short-lived OIDC token for PyPI trusted publishing (no API token).
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "pyproject.toml"
+      - name: Build soliplex-skills
+        run: uv build --sdist --wheel
+      - name: Publish soliplex-skills
+        run: uv publish --trusted-publishing always
