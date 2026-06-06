@@ -48,7 +48,9 @@ class PublishedSkill:
         raise NotImplementedError
 
 
-def download_skill(spec: PublishedSkill, version: str | None, dest: Path) -> Path:
+def download_skill(
+    spec: PublishedSkill, version: str | None, dest: Path
+) -> Path:
     """Download + extract *spec* into *dest*; return the extracted skill root.
 
     When *version* is ``None`` the skill's ``latest`` pointer is read (and its

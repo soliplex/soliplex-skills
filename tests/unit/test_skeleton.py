@@ -17,19 +17,16 @@ import pytest
 
 # Client code imports the submodules directly -- the package has no
 # re-exporting ``__init__``.
-from soliplex_skills import (
-    build,
-    cli,
-    install,
-    manifest,
-    metadata,
-    releases,
-    versions,
-)
+from soliplex_skills import build
+from soliplex_skills import cli
+from soliplex_skills import install
+from soliplex_skills import manifest
+from soliplex_skills import metadata
+from soliplex_skills import releases
+from soliplex_skills import versions
 
 
 def test_submodules_expose_their_public_names():
-    # setup / execute
     surface = {
         manifest: ["ReleaseManifest"],
         metadata: ["read_source_commit", "stamp_source_commit"],
@@ -40,14 +37,12 @@ def test_submodules_expose_their_public_names():
         cli: ["main"],
     }
 
-    # assertions
     for module, names in surface.items():
         for name in names:
             assert hasattr(module, name), f"{module.__name__}.{name}"
 
 
 def test_dataclasses_construct():
-    # setup
     spec = versions.SkillSpec(
         owner="soliplex",
         repo="soliplex",
@@ -58,7 +53,6 @@ def test_dataclasses_construct():
         compare_scope="references",
     )
 
-    # execute
     man = manifest.ReleaseManifest(
         tag="docs-2026.05.29-cc9a290f",
         source_commit="cc9a290",
@@ -67,48 +61,46 @@ def test_dataclasses_construct():
         asset_url="https://example.invalid/a.tar.gz",
     )
 
-    # assertions
     assert spec.compare_scope == "references"
     assert spec.pointer_manifest == "latest.json"
     assert man.tag.startswith("docs-")
 
 
+# Not-yet-implemented entry points. As each phase lands, its lambda moves out
+# of this list into a real behavioral test module; the remaining stubs must
+# still fail loudly rather than silently returning ``None``.
 @pytest.mark.parametrize(
     "call",
     [
-        lambda: metadata.read_source_commit(Path("SKILL.md")),
-        lambda: metadata.stamp_source_commit(Path("SKILL.md"), "abc1234"),
         lambda: releases.list_releases("soliplex", "soliplex"),
         lambda: build.discover_skills(Path("skills")),
         lambda: cli.main([]),
     ],
-    ids=["read_commit", "stamp_commit", "list_releases", "discover_skills", "cli"],
+    ids=["list_releases", "discover_skills", "cli"],
 )
 def test_stubs_raise_not_implemented(call):
-    # execute / assertions
     with pytest.raises(NotImplementedError):
         call()
 
 
 def test_skill_versions_methods_raise_not_implemented():
-    # setup
     spec = versions.SkillSpec(
         owner="soliplex",
         repo="soliplex-template",
         skill_name="soliplex-template",
         asset_tarball="soliplex-template-skill.tar.gz",
         pointer_tag="template-skill-latest",
-        rolling_re=re.compile(r"^template-skill-\d{4}\.\d{2}\.\d{2}-[0-9a-f]+$"),
+        rolling_re=re.compile(
+            r"^template-skill-\d{4}\.\d{2}\.\d{2}-[0-9a-f]+$"
+        ),
     )
     sv = versions.SkillVersions(spec)
 
-    # execute / assertions
     with pytest.raises(NotImplementedError):
         sv.list()
 
 
 def test_published_skill_download_base_raises():
-    # setup
     pub = install.PublishedSkill(
         name="soliplex-docs",
         owner="soliplex",
@@ -117,6 +109,5 @@ def test_published_skill_download_base_raises():
         pointer_tag="docs-latest",
     )
 
-    # execute / assertions
     with pytest.raises(NotImplementedError):
         _ = pub.download_base

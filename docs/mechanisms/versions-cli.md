@@ -31,9 +31,9 @@ Filter with `--kind {rolling,release}`, or get machine-readable output with
 Compares your installed skill against a published version (default `latest`).
 
 ```console
-$ python scripts/skill_versions.py diff           # vs. latest
-$ python scripts/skill_versions.py diff v0.68     # vs. a specific tag
-$ python scripts/skill_versions.py diff --name-only
+python scripts/skill_versions.py diff           # vs. latest
+python scripts/skill_versions.py diff v0.68     # vs. a specific tag
+python scripts/skill_versions.py diff --name-only
 ```
 
 What gets compared depends on the skill's **compare scope**:
@@ -48,10 +48,10 @@ What gets compared depends on the skill's **compare scope**:
 Downloads a version (default `latest`) and installs it **in place**.
 
 ```console
-$ python scripts/skill_versions.py upgrade            # to latest
-$ python scripts/skill_versions.py upgrade v0.68      # to a specific tag
-$ python scripts/skill_versions.py upgrade --dry-run  # show the plan only
-$ python scripts/skill_versions.py upgrade --force    # reinstall same commit
+python scripts/skill_versions.py upgrade            # to latest
+python scripts/skill_versions.py upgrade v0.68      # to a specific tag
+python scripts/skill_versions.py upgrade --dry-run  # show the plan only
+python scripts/skill_versions.py upgrade --force    # reinstall same commit
 ```
 
 - The download's **`sha256` is verified** against the manifest when known.

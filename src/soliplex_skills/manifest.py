@@ -6,20 +6,19 @@ for a rolling build it is also published as ``latest.json`` under the
 ``…-latest`` pointer tag so a single request resolves "what is newest?".
 
 The two files have an identical shape -- this module is its one definition.
-
-.. note::
-
-   **Proposed API / not yet implemented.** This is a design stub extracted
-   from the per-repo workflows (the ``jq -n '{tag, source_commit, generated,
-   sha256, asset_url}'`` step) and from ``skill_versions.py`` /
-   ``apply.py``'s pointer parsing. Method bodies raise
-   :class:`NotImplementedError`.
+It mirrors the per-repo workflows' ``jq -n '{tag, source_commit, generated,
+sha256, asset_url}'`` step and the pointer parsing in ``skill_versions.py`` /
+``apply.py``.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import json
 from collections import abc
+
+#: Manifest keys, in the canonical order the publishing workflow emits them.
+_FIELDS = ("tag", "source_commit", "generated", "sha256", "asset_url")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -47,10 +46,18 @@ class ReleaseManifest:
     asset_url: str
 
     @classmethod
-    def from_json(cls, raw: str | bytes | abc.Mapping[str, object]) -> "ReleaseManifest":
-        """Parse a manifest from JSON text/bytes or an already-decoded mapping."""
-        raise NotImplementedError
+    def from_json(
+        cls, raw: str | bytes | abc.Mapping[str, object]
+    ) -> ReleaseManifest:
+        """Parse a manifest from JSON text/bytes or a decoded mapping.
+
+        Only the recognized fields are read; any extras in the source are
+        ignored. Raises :class:`KeyError` if a required field is absent.
+        """
+        data = raw if isinstance(raw, abc.Mapping) else json.loads(raw)
+        return cls(**{field: data[field] for field in _FIELDS})
 
     def to_json(self, *, indent: int | None = None) -> str:
-        """Serialize to the canonical JSON written by the publishing workflow."""
-        raise NotImplementedError
+        """Serialize to the canonical JSON the publishing workflow emits."""
+        payload = {field: getattr(self, field) for field in _FIELDS}
+        return json.dumps(payload, indent=indent)

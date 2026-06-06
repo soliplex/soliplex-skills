@@ -36,6 +36,7 @@ soliplex-skills = "soliplex_skills.cli:main"
 [dependency-groups]
 dev = [
     "coverage",
+    "pymarkdownlnt",
     "pytest",
     "ruff",
 ]
@@ -49,3 +50,51 @@ packages = ["src/soliplex_skills"]
 [tool.coverage.run]
 branch = true
 source = ["soliplex_skills"]
+
+# Linting configuration imported from ../soliplex/pyproject.toml.
+# (target-version set to py312 to match this repo's requires-python.)
+[tool.ruff]
+line-length = 79
+exclude = [
+]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    # flake8
+    "F",
+    # pycodestyle
+    "E",
+    # flake8-bugbear
+    "B",
+    # pyupgrade
+    "U",
+    # isort
+    "I",
+    # pandas vet
+    "PD",
+    # tryceratops
+    "TRY",
+    # flake8-pytest-style
+    "PT",
+]
+ignore = [
+    "PT019",  # incorrecly flags '@mock.patch' args as fixtures
+]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[tool.ruff.lint.flake8-pytest-style]
+parametrize-names-type = "csv"
+
+[tool.pymarkdown]
+extensions.front-matter.enabled = true
+plugins.line-length.enabled = false             # md013
+plugins.no-duplicate-heading.enabled = false    # md024
+plugins.no-inline-html.enabled = false          # md033
+plugins.no-emphasis-as-heading.enabled = false  # md036
+plugins.first-line-heading.enabled = false      # md041
+plugins.code-block-style.enabled = false        # md046
+# There is no rule 'md060'
+# plugins.md060.enabled = false                 # md060

@@ -6,7 +6,8 @@ scripts expose today, but driven by the consolidated library:
 * ``list``    -- published versions of a skill (see :mod:`.versions`)
 * ``diff``    -- installed skill vs. a published version
 * ``upgrade`` -- install a published version in place
-* ``build``   -- assemble/stamp/validate a skill into ``dist/`` (see :mod:`.build`)
+* ``build``   -- assemble/stamp/validate a skill into ``dist/``
+  (see :mod:`.build`)
 
 .. note::
 

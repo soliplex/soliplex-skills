@@ -15,11 +15,11 @@ For each skill it publishes, the workflow:
 3. **Emits a manifest** — the `version.json` / `latest.json` payload
    (`{tag, source_commit, generated, sha256, asset_url}`).
 4. **Publishes** in the appropriate mode:
-    - *rolling* — create the dated prerelease, update the `<prefix>-latest`
-      pointer, and prune old rolling builds to `KEEP_ROLLING`;
-    - *tagged, repo-coupled* — attach the assets to the repo's `v…` release;
-    - *tagged, independently-versioned* — publish under the skill's own
-      `<skill>-vX.Y.Z` tag namespace.
+   - *rolling* — create the dated prerelease, update the `<prefix>-latest`
+     pointer, and prune old rolling builds to `KEEP_ROLLING`;
+   - *tagged, repo-coupled* — attach the assets to the repo's `v…` release;
+   - *tagged, independently-versioned* — publish under the skill's own
+     `<skill>-vX.Y.Z` tag namespace.
 
 ## Which tag a tagged release lands on
 

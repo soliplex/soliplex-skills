@@ -76,7 +76,9 @@ class SkillVersions:
     def __init__(self, spec: SkillSpec):
         self.spec = spec
 
-    def list(self, *, kind: Literal["rolling", "release"] | None = None) -> list[dict]:
+    def list(
+        self, *, kind: Literal["rolling", "release"] | None = None
+    ) -> list[dict]:
         """Return skill-bearing releases, newest first (excluding the pointer).
 
         Each entry carries ``tag``, ``date``, ``kind``, ``commit`` and

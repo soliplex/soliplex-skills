@@ -12,10 +12,10 @@ A skill is identified by a small spec (owner, repo, asset tarball, pointer
 tag). To install it:
 
 1. **Resolve the target.**
-    - No explicit version → read the skill's `…-latest`
-      [pointer manifest](../overview/release-model.md#the-manifest) and use its
-      `asset_url` (and its recorded `sha256`).
-    - An explicit tag → build the asset URL by name from the tag.
+   - No explicit version → read the skill's `…-latest`
+     [pointer manifest](../overview/release-model.md#the-manifest) and use its
+     `asset_url` (and its recorded `sha256`).
+   - An explicit tag → build the asset URL by name from the tag.
 2. **Download** the tarball.
 3. **Verify** its `sha256` against the manifest when one is known.
 4. **Extract** and return the skill root — the directory containing `SKILL.md`.

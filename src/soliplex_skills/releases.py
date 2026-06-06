@@ -53,12 +53,16 @@ def fetch(url: str, *, accept: str = "application/vnd.github+json") -> bytes:
     raise NotImplementedError
 
 
-def list_releases(owner: str, repo: str, *, token: str | None = None) -> list[dict]:
-    """Return every release for ``owner/repo``, paginating the GitHub API."""
+def list_releases(
+    owner: str, repo: str, *, token: str | None = None
+) -> list[dict]:
+    """Return every release for ``owner/repo``, paginating the API."""
     raise NotImplementedError
 
 
-def classify(release: abc.Mapping[str, object], *, rolling_re) -> tuple[ReleaseKind, str]:
+def classify(
+    release: abc.Mapping[str, object], *, rolling_re
+) -> tuple[ReleaseKind, str]:
     """Return ``(kind, commit)`` for a release.
 
     A tag matching *rolling_re* (a compiled pattern such as
