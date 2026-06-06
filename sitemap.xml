@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url>
+        <loc>https://soliplex.github.io/soliplex-skills/</loc>
+      </url>
+      <url>
+        <loc>https://soliplex.github.io/soliplex-skills/overview/concepts/</loc>
+      </url>
+      <url>
+        <loc>https://soliplex.github.io/soliplex-skills/overview/release-model/</loc>
+      </url>
+      <url>
+        <loc>https://soliplex.github.io/soliplex-skills/overview/skill-anatomy/</loc>
+      </url>
+      <url>
+        <loc>https://soliplex.github.io/soliplex-skills/mechanisms/building/</loc>
+      </url>
+      <url>
+        <loc>https://soliplex.github.io/soliplex-skills/mechanisms/publishing/</loc>
+      </url>
+      <url>
+        <loc>https://soliplex.github.io/soliplex-skills/mechanisms/versions-cli/</loc>
+      </url>
+      <url>
+        <loc>https://soliplex.github.io/soliplex-skills/mechanisms/installation/</loc>
+      </url>
+      <url>
+        <loc>https://soliplex.github.io/soliplex-skills/reference/api/</loc>
+      </url>
+</urlset>
