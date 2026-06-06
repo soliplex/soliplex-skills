@@ -38,7 +38,9 @@ dev = [
     "coverage",
     "pymarkdownlnt",
     "pytest",
-    "ruff",
+    # Pinned to match the ruff-pre-commit hook rev in .pre-commit-config.yaml,
+    # so `uv run ruff format` and the commit hook never disagree.
+    "ruff==0.15.10",
 ]
 docs = [
     "zensical",
