@@ -80,7 +80,7 @@ def test_install_over_prunes_upstream_deletions(tmp_path, make_skill):
     upstream = make_skill(
         "demo-skill",
         commit="def5678",
-        files={"references/new.md": "fresh\n"},
+        files={"references/new.md": "fresh\n", "assets/added.md": "added\n"},
         parent=tmp_path / "upstream",
     )
 
@@ -88,6 +88,8 @@ def test_install_over_prunes_upstream_deletions(tmp_path, make_skill):
 
     assert not (installed / "references" / "old.md").exists()
     assert (installed / "references" / "new.md").read_text() == "fresh\n"
+    # 'assets/' is new to the install, exercising the create-directory path.
+    assert (installed / "assets" / "added.md").read_text() == "added\n"
 
 
 def test_temp_dest_is_removed_on_exit():

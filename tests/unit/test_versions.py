@@ -152,6 +152,100 @@ def test_diff_tree_reports_changes(
     assert "- removed: scripts/gone.py" in out
 
 
+def test_diff_name_only(
+    monkeypatch, tmp_path, make_skill, make_tarball, capsys
+):
+    installed = make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files={"references/a.md": "old\n"},
+        parent=tmp_path / "installed",
+    )
+    mapping, _ = _publish(
+        make_skill,
+        make_tarball,
+        tmp_path,
+        commit="bbbbbbb",
+        files={"references/a.md": "new\n"},
+    )
+    monkeypatch.setattr(releases, "fetch", _serve(mapping))
+
+    rc = versions.SkillVersions(_spec()).diff(
+        installed, "latest", name_only=True
+    )
+
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "~ changed: references/a.md" in out
+    assert "@@" not in out
+
+
+def test_diff_explicit_tag(monkeypatch, tmp_path, make_skill, make_tarball):
+    installed = make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files={"references/a.md": "same\n"},
+        parent=tmp_path / "installed",
+    )
+    mapping, _ = _publish(
+        make_skill,
+        make_tarball,
+        tmp_path,
+        commit="bbbbbbb",
+        files={"references/a.md": "same\n"},
+    )
+    monkeypatch.setattr(releases, "fetch", _serve(mapping))
+
+    rc = versions.SkillVersions(_spec("references")).diff(
+        installed, "docs-2026.05.29-bbbbbbb"
+    )
+
+    assert rc == 0
+
+
+def test_diff_tree_scope_ignores_pycache(
+    monkeypatch, tmp_path, make_skill, make_tarball
+):
+    pycache = {
+        "references/a.md": "same\n",
+        "scripts/__pycache__/tool.pyc": "junk\n",
+    }
+    installed = make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files=pycache,
+        parent=tmp_path / "installed",
+    )
+    mapping, _ = _publish(
+        make_skill, make_tarball, tmp_path, commit="aaaaaaa", files=pycache
+    )
+    monkeypatch.setattr(releases, "fetch", _serve(mapping))
+
+    rc = versions.SkillVersions(_spec()).diff(installed, "latest")
+
+    assert rc == 0
+
+
+def test_diff_references_scope_missing_installed_refs(
+    monkeypatch, tmp_path, make_skill, make_tarball
+):
+    installed = make_skill(
+        "soliplex-docs", commit="aaaaaaa", parent=tmp_path / "installed"
+    )
+    mapping, _ = _publish(
+        make_skill,
+        make_tarball,
+        tmp_path,
+        commit="bbbbbbb",
+        files={"references/a.md": "new\n"},
+    )
+    monkeypatch.setattr(releases, "fetch", _serve(mapping))
+
+    rc = versions.SkillVersions(_spec("references")).diff(installed, "latest")
+
+    assert rc == 1
+
+
 def test_diff_identical_returns_zero(
     monkeypatch, tmp_path, make_skill, make_tarball, capsys
 ):

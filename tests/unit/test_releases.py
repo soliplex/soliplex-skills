@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import urllib.error
 
 import pytest
 
@@ -59,6 +60,40 @@ def test_fetch_wraps_missing_file_as_api_error(tmp_path):
 
     with pytest.raises(releases.GitHubAPIError):
         releases.fetch(missing.as_uri())
+
+
+def test_fetch_adds_authorization_header_when_token_set(tmp_path, monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "secret")
+    payload = tmp_path / "data.bin"
+    payload.write_bytes(b"ok")
+
+    result = releases.fetch(payload.as_uri())
+
+    assert result == b"ok"
+
+
+def test_fetch_wraps_http_error(monkeypatch):
+    def boom(request):
+        raise urllib.error.HTTPError(
+            request.full_url, 404, "Not Found", {}, None
+        )
+
+    monkeypatch.setattr(releases.urllib.request, "urlopen", boom)
+
+    with pytest.raises(releases.GitHubAPIError):
+        releases.fetch("https://api.github.com/x")
+
+
+def test_list_releases_empty_first_page(monkeypatch):
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        lambda url, *, accept=None, auth_token=None: b"[]",
+    )
+
+    result = releases.list_releases("soliplex", "soliplex")
+
+    assert result == []
 
 
 def test_list_releases_paginates(monkeypatch):

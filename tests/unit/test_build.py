@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+
 import pytest
 
 from soliplex_skills import build
@@ -108,3 +110,69 @@ def test_build_skill_validate_failure(tmp_path, make_skill, monkeypatch):
 
     with pytest.raises(build.ValidationFailed):
         build.build_skill("demo", src=src, dist=dist, validate=True)
+
+
+def test_build_skill_unstamped_without_commit(
+    tmp_path, make_skill, monkeypatch
+):
+    src = tmp_path / "skills"
+    make_skill("demo", commit=None, parent=src)
+    dist = tmp_path / "dist"
+    monkeypatch.setattr(build, "git_head_commit", lambda _dir: None)
+
+    out = build.build_skill("demo", src=src, dist=dist, validate=False)
+
+    assert metadata.read_source_commit(out / "SKILL.md") is None
+
+
+def test_validator_cmd_prefers_agentskills(monkeypatch):
+    monkeypatch.setattr(build.shutil, "which", lambda name: "/bin/agentskills")
+
+    cmd = build.validator_cmd()
+
+    assert cmd == ["/bin/agentskills", "validate"]
+
+
+def test_validator_cmd_falls_back_to_uvx(monkeypatch):
+    which = {"agentskills": None, "uvx": "/bin/uvx"}
+    monkeypatch.setattr(build.shutil, "which", lambda name: which[name])
+
+    cmd = build.validator_cmd()
+
+    assert cmd == [
+        "/bin/uvx",
+        "--from",
+        "skills-ref",
+        "agentskills",
+        "validate",
+    ]
+
+
+def test_validator_cmd_unavailable_raises(monkeypatch):
+    monkeypatch.setattr(build.shutil, "which", lambda name: None)
+
+    with pytest.raises(build.ValidatorUnavailable):
+        build.validator_cmd()
+
+
+def test_git_head_commit_returns_sha(tmp_path, monkeypatch):
+    monkeypatch.setattr(build.shutil, "which", lambda _name: "/bin/git")
+    completed = subprocess.CompletedProcess([], 0, stdout="deadbee\n")
+    monkeypatch.setattr(build.subprocess, "run", lambda *a, **k: completed)
+
+    result = build.git_head_commit(tmp_path)
+
+    assert result == "deadbee"
+
+
+def test_git_head_commit_handles_git_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(build.shutil, "which", lambda _name: "/bin/git")
+
+    def boom(*a, **k):
+        raise subprocess.CalledProcessError(1, ["git"])
+
+    monkeypatch.setattr(build.subprocess, "run", boom)
+
+    result = build.git_head_commit(tmp_path)
+
+    assert result is None

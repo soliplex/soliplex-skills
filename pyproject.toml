@@ -38,6 +38,7 @@ dev = [
     "coverage",
     "pymarkdownlnt",
     "pytest",
+    "pytest-cov",
     # Pinned to match the ruff-pre-commit hook rev in .pre-commit-config.yaml,
     # so `uv run ruff format` and the commit hook never disagree.
     "ruff==0.15.10",
@@ -49,9 +50,16 @@ docs = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/soliplex_skills"]
 
-[tool.coverage.run]
-branch = true
-source = ["soliplex_skills"]
+# Test + coverage configuration, mirroring ../soliplex/pyproject.toml:
+# 100% branch coverage of both the package and the test suite is required.
+[tool.pytest.ini_options]
+pythonpath = [".", "tests/unit"]
+python_files = "test_*.py"
+testpaths = ["tests/unit"]
+addopts = "--cov=soliplex_skills --cov=tests/unit --cov-branch --cov-fail-under=100"
+
+[tool.coverage.report]
+show_missing = true
 
 # Linting configuration imported from ../soliplex/pyproject.toml.
 # (target-version set to py312 to match this repo's requires-python.)

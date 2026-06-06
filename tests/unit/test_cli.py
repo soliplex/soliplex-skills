@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from soliplex_skills import _archive
 from soliplex_skills import cli
 from soliplex_skills import releases
+from soliplex_skills import versions
 
 _DOCS = {
     "name": "soliplex-docs",
@@ -188,3 +191,40 @@ def test_unknown_skill_errors(tmp_path, capsys):
 
     assert rc == 2
     assert "no skill 'ghost'" in capsys.readouterr().err
+
+
+def test_list_selects_named_skill_and_reports_empty(
+    tmp_path, monkeypatch, capsys
+):
+    pp = _write_pyproject(tmp_path, _DOCS, _TEMPLATE)
+    monkeypatch.setattr(releases, "list_releases", lambda owner, repo: [])
+
+    rc = cli.main(["list", "--pyproject", str(pp), "--skill", "soliplex-docs"])
+
+    assert rc == 0
+    assert "No published versions found." in capsys.readouterr().out
+
+
+def test_build_reports_when_no_skills(tmp_path, capsys):
+    src = tmp_path / "empty"
+    src.mkdir()
+
+    rc = cli.main(
+        ["build", "--src", str(src), "--dist", str(tmp_path / "dist")]
+    )
+
+    assert rc == 1
+    assert "no skills found" in capsys.readouterr().err
+
+
+def test_diff_propagates_pointer_unavailable(
+    tmp_path, monkeypatch, make_skill
+):
+    pp = _write_pyproject(tmp_path, _DOCS)
+    installed = make_skill("soliplex-docs", parent=tmp_path / "installed")
+    monkeypatch.setattr(releases, "fetch", _serve({}))
+
+    with pytest.raises(versions.PointerUnavailable):
+        cli.main(
+            ["diff", "--pyproject", str(pp), "--skill-dir", str(installed)]
+        )
