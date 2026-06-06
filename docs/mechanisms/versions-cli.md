@@ -60,15 +60,43 @@ python scripts/skill_versions.py upgrade --force    # reinstall same commit
 - If your installed `source_commit` already matches the target, it is a no-op
   unless you pass `--force`. (Downgrading is just upgrading to an older tag.)
 
-## Proposed API
+## The `soliplex-skills` CLI
 
-!!! warning "Proposed / not yet implemented"
-    The methods below are design stubs (`versions.py`). Their bodies raise
-    `NotImplementedError`.
+The same three operations are available from the installed console script,
+which reads each skill's configuration from a `[tool.soliplex-skills]` stanza
+in `pyproject.toml` (see [CLI configuration](#cli-configuration)) so you don't
+repeat the constants on the command line:
+
+```console
+soliplex-skills list --skill soliplex-docs
+soliplex-skills diff --skill soliplex-docs --skill-dir path/to/installed
+soliplex-skills upgrade --skill soliplex-docs --skill-dir path/to/installed --dry-run
+```
+
+`--skill` is optional when the config defines a single skill; `--pyproject`
+overrides the default upward search for `pyproject.toml`.
+
+## CLI configuration
+
+Each skill records its [`SkillSpec`](../reference/api.md) once, as an array of
+tables. The `rolling_prefix` is expanded into the rolling-tag regex, and
+`compare_scope` defaults to `"tree"`:
+
+```toml
+[[tool.soliplex-skills.skill]]
+name = "soliplex-docs"
+owner = "soliplex"
+repo = "soliplex"
+asset_tarball = "soliplex-docs-skill.tar.gz"
+pointer_tag = "docs-latest"
+rolling_prefix = "docs"          # -> ^docs-\d{4}\.\d{2}\.\d{2}-[0-9a-f]+$
+compare_scope = "references"     # optional, default "tree"
+```
+
+## Library API
 
 The three subcommands are methods on **`SkillVersions`**, configured by a
-**`SkillSpec`** that captures exactly the constants that differ between skills
-today:
+**`SkillSpec`** that captures exactly the constants that differ between skills:
 
 ```python
 import re
@@ -91,7 +119,8 @@ sv.upgrade(installed_path, "latest", dry_run=True)
 ```
 
 !!! note "What this de-duplicates"
-    The ~575-line `skill_versions.py` is currently vendored verbatim into five
-    or more skills, differing only in those `SkillSpec` fields and the
-    `compare_scope` toggle. Under this design the vendored script becomes a
-    thin shim: it fills in a `SkillSpec` and delegates to `SkillVersions`.
+    The ~575-line `skill_versions.py` is vendored verbatim into five or more
+    skills, differing only in those `SkillSpec` fields and the `compare_scope`
+    toggle. Consuming this library, the vendored script collapses to a thin
+    shim that fills in a `SkillSpec` and delegates to `SkillVersions` (see
+    [future adoption](../index.md#future-adoption)).

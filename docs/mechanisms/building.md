@@ -3,7 +3,7 @@
 Before a skill can be published it is **assembled, stamped, and validated**
 into a distribution directory. This is the step the per-repo
 `build_skill.py` / `build_skills.py` / `generate_docs_skill.py` scripts perform
-today; the proposed [`build` module](../reference/api.md) consolidates it.
+today; the [`build` module](../reference/api.md) consolidates it.
 
 ## The pipeline
 
@@ -25,11 +25,9 @@ flowchart LR
 Packaging the validated `dist/<name>/` into release assets (a tarball and zip)
 is the [publishing workflow](publishing.md)'s job, not the build script's.
 
-## Proposed API
+## API
 
-!!! warning "Proposed / not yet implemented"
-    The functions below are design stubs (`build.py`). Their bodies raise
-    `NotImplementedError`; the signatures define the intended contract.
+The [`build` module](../reference/api.md):
 
 - **`discover_skills(skills_dir)`** — return the names of every skill directory
   (those containing a `SKILL.md`) under `skills_dir`. Repos that ship several

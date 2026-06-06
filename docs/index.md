@@ -11,12 +11,11 @@ across the Soliplex projects:
 | `soliplex-template` | `soliplex-template` |
 | `soliplex-concierge`| `soliplex-concierge-installer`, `soliplex-concierge.room`, `soliplex-concierge.admin` |
 
-!!! warning "Status: design overview"
-    This site documents the **mechanisms** these projects already use and the
-    **proposed library API** that will absorb them. The library itself is a
-    skeleton today — its modules carry typed signatures and behavior
-    docstrings, but their bodies raise `NotImplementedError`. Pages that
-    describe code are marked accordingly.
+!!! note "Status"
+    This site documents the **mechanisms** these projects use and the
+    **library API** that absorbs them. The library is implemented and tested
+    (100% coverage); the sibling repos have not yet been migrated to consume
+    it — see [future adoption](#future-adoption).
 
 ## The problem: one mechanism, copied many times
 
@@ -49,11 +48,29 @@ thin shim and the build scripts and workflows call into a shared library.
     Read the [Overview](overview/concepts.md) for the vocabulary and the
     [release model](overview/release-model.md), then the
     [Mechanisms](mechanisms/building.md) section for how building, publishing,
-    and installation map onto the proposed API. The
-    [API reference](reference/api.md) is the consolidated contract.
+    and installation map onto the library API. The
+    [API reference](reference/api.md) is the consolidated surface.
 
 === "I have a skill installed and want to manage it"
 
     Go straight to [Managing an installed skill](mechanisms/versions-cli.md):
     how to **list** published versions, **diff** your installed copy against a
     published one, and **upgrade** (or downgrade) in place.
+
+## Future adoption
+
+The library is in place; migrating the sibling repos to consume it is the
+remaining work, and is deliberately out of scope for `soliplex-skills` itself:
+
+- **The vendored `skill_versions.py` becomes a thin shim.** Rather than import
+  `soliplex_skills` (which is not installed in the environment an *installed*
+  skill runs in), each skill will ship a small
+  [PEP 723](https://peps.python.org/pep-0723/) script that declares
+  `# dependencies = ["soliplex-skills"]` in its inline metadata, so `uv`/`uvx`
+  provisions the library at run time. The shim fills in a
+  [`SkillSpec`](reference/api.md) and delegates to `SkillVersions`.
+- **The build scripts and release workflows call into the library** instead of
+  re-implementing `stamp_source_commit`, manifest emission, and tag
+  classification.
+
+Until then, the sibling repos keep their copy-pasted scripts unchanged.

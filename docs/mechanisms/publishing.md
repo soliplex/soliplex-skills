@@ -39,7 +39,7 @@ independent tagged releases slot in without special handling.
 
 ## Library boundary
 
-!!! warning "Proposed / not yet implemented"
+!!! note "Library boundary"
     The publishing **orchestration** stays in the workflow YAML — it is where
     GitHub credentials, the releases API, and pruning naturally live. What the
     library factors out are the **reusable primitives** the workflow currently

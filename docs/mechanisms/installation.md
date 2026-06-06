@@ -20,11 +20,9 @@ tag). To install it:
 3. **Verify** its `sha256` against the manifest when one is known.
 4. **Extract** and return the skill root — the directory containing `SKILL.md`.
 
-## Proposed API
+## API
 
-!!! warning "Proposed / not yet implemented"
-    The names below are design stubs (`install.py`). Their bodies raise
-    `NotImplementedError`.
+The [`install` module](../reference/api.md):
 
 ```python
 from soliplex_skills import install

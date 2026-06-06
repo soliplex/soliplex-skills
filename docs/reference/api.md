@@ -1,11 +1,9 @@
 # API reference
 
-!!! warning "Proposed / not yet implemented"
-    This is the **design contract** for the library, not a record of working
-    code. The modules under `src/soliplex_skills/` carry these typed signatures
-    and behavior docstrings, but their bodies raise `NotImplementedError`. The
-    [smoke test](https://github.com/soliplex/soliplex-skills) asserts exactly
-    that, so the surface stays honest until each stub is filled in.
+!!! note "Implemented"
+    This is the library's public surface. Every member below is implemented
+    and covered by the test suite (100% branch coverage); the modules under
+    `src/soliplex_skills/` are the source of truth.
 
 There is no re-exporting package `__init__` — **client code imports the
 submodule and uses its members by dotted name** (e.g. `from soliplex_skills
@@ -39,8 +37,9 @@ import versions` then `versions.SkillVersions(...)`). The headline types are:
 | --- | --- |
 | `list_releases(owner, repo, *, token=None)` | paginate the repo's releases |
 | `classify(release, *, rolling_re)` | `(kind, commit)` — rolling vs. release |
+| `has_asset(release, name)` | whether a release carries an asset called `name` |
 | `read_pointer(asset_url)` | resolve a `…-latest` manifest, or `None` |
-| `fetch(url, *, accept=…)` | scheme-guarded GitHub fetch with auth header |
+| `fetch(url, *, accept=…, auth_token=None)` | scheme-guarded GitHub fetch (`https`/`file`) |
 | `token()` | `GITHUB_TOKEN` / `GH_TOKEN` from the environment |
 | `GitHubAPIError`, `UnsupportedURLScheme` | error types |
 
@@ -68,7 +67,16 @@ import versions` then `versions.SkillVersions(...)`). The headline types are:
 | --- | --- |
 | `PublishedSkill(name, owner, repo, asset_tarball, pointer_tag, pointer_manifest="latest.json")` | a release-published skill spec |
 | `PublishedSkill.download_base` | base URL for the repo's release-download assets |
+| `PublishedSkill.asset_url(tag)` / `.pointer_url()` | asset / pointer-manifest URLs |
 | `download_skill(spec, version, dest)` | resolve → download → verify → extract; returns the skill root |
+
+## `config` — load specs from `pyproject.toml`
+
+| Member | Purpose |
+| --- | --- |
+| `load_skill_specs(pyproject_path)` | `{name: SkillSpec}` from `[[tool.soliplex-skills.skill]]` |
+| `find_pyproject(start=None)` | nearest `pyproject.toml` at/above `start` (cwd default) |
+| `SkillConfigError` (+ subclasses) | raised on missing/invalid configuration |
 
 ## `cli` — console entry point
 
