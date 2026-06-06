@@ -80,16 +80,3 @@ def test_dataclasses_construct():
 def test_stubs_raise_not_implemented(call):
     with pytest.raises(NotImplementedError):
         call()
-
-
-def test_published_skill_download_base_raises():
-    pub = install.PublishedSkill(
-        name="soliplex-docs",
-        owner="soliplex",
-        repo="soliplex",
-        asset_tarball="soliplex-docs-skill.tar.gz",
-        pointer_tag="docs-latest",
-    )
-
-    with pytest.raises(NotImplementedError):
-        _ = pub.download_base

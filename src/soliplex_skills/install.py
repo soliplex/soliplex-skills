@@ -9,17 +9,22 @@ skill root. This generalizes the ``PublishedSkill`` dataclass and
 
 .. note::
 
-   **Proposed API / not yet implemented.** The stack-editing helpers from
-   ``apply.py`` (surgically wiring a skill into a target Soliplex stack's
-   ``pyproject.toml`` / ``installation.yaml`` / rooms) are intentionally out
-   of scope for now -- they belong in a later, installer-specific module.
-   Function bodies here raise :class:`NotImplementedError`.
+   The stack-editing helpers from ``apply.py`` (surgically wiring a skill into
+   a target Soliplex stack's ``pyproject.toml`` / ``installation.yaml`` /
+   rooms) are intentionally out of scope for now -- they belong in a later,
+   installer-specific module.
 """
 
 from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
+
+from soliplex_skills import _archive
+from soliplex_skills import releases
+from soliplex_skills.versions import PointerUnavailable
+
+_GITHUB = "https://github.com"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -45,7 +50,17 @@ class PublishedSkill:
     @property
     def download_base(self) -> str:
         """Base URL for this repo's release-download assets."""
-        raise NotImplementedError
+        return f"{_GITHUB}/{self.owner}/{self.repo}/releases/download"
+
+    def asset_url(self, tag: str) -> str:
+        """Direct download URL for this skill's asset under *tag*."""
+        return f"{self.download_base}/{tag}/{self.asset_tarball}"
+
+    def pointer_url(self) -> str:
+        """URL of the ``…-latest`` pointer manifest."""
+        return (
+            f"{self.download_base}/{self.pointer_tag}/{self.pointer_manifest}"
+        )
 
 
 def download_skill(
@@ -57,4 +72,15 @@ def download_skill(
     recorded sha256 verified); an explicit tag builds the asset URL by name.
     The returned path is the directory containing ``SKILL.md``.
     """
-    raise NotImplementedError
+    if version is None:
+        pointer = releases.read_pointer(spec.pointer_url())
+        if pointer is None:
+            raise PointerUnavailable(spec.pointer_tag)
+        asset_url, sha256 = pointer.asset_url, pointer.sha256
+    else:
+        asset_url, sha256 = spec.asset_url(version), None
+
+    extract_dir = _archive.download_and_extract(
+        asset_url, dest, expected_sha256=sha256
+    )
+    return _archive.find_skill_root(extract_dir)
