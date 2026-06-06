@@ -99,8 +99,8 @@ def test_list_json(tmp_path, monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out) == []
 
 
-def test_diff_returns_one_on_changes(
-    tmp_path, monkeypatch, make_skill, make_tarball
+def test_diff_returns_one_and_prints_diff_on_changes(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
 ):
     pp = _write_pyproject(tmp_path, _DOCS)
     installed = make_skill(
@@ -119,7 +119,130 @@ def test_diff_returns_one_on_changes(
         ["diff", "--pyproject", str(pp), "--skill-dir", str(installed)]
     )
 
-    assert rc == 1
+    out = capsys.readouterr().out
+    assert rc == 1  # differences were found
+    assert "~ changed: a.md" in out  # per-file summary
+    assert "-old" in out  # the unified diff itself
+    assert "+hi" in out
+
+
+def _serve_two_tags(
+    make_skill, make_tarball, tmp_path, left_files, right_files
+):
+    left = make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files=left_files,
+        parent=tmp_path / "left",
+    )
+    right = make_skill(
+        "soliplex-docs",
+        commit="bbbbbbb",
+        files=right_files,
+        parent=tmp_path / "right",
+    )
+    left_tb = make_tarball(left, tmp_path / "left.tar.gz")
+    right_tb = make_tarball(right, tmp_path / "right.tar.gz")
+    return _serve(
+        {
+            "docs-1/soliplex-docs-skill.tar.gz": left_tb.read_bytes(),
+            "docs-2/soliplex-docs-skill.tar.gz": right_tb.read_bytes(),
+        }
+    )
+
+
+def test_diff_two_tags_returns_one_and_prints_diff(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    pp = _write_pyproject(tmp_path, _DOCS)
+    fetch = _serve_two_tags(
+        make_skill,
+        make_tarball,
+        tmp_path,
+        {"references/a.md": "old\n"},
+        {"references/a.md": "new\n"},
+    )
+    monkeypatch.setattr(releases, "fetch", fetch)
+
+    rc = cli.main(["diff", "--pyproject", str(pp), "docs-1", "docs-2"])
+
+    out = capsys.readouterr().out
+    assert rc == 1  # differences were found
+    assert "~ changed: a.md" in out  # per-file summary
+    assert "-old" in out  # the unified diff itself
+    assert "+new" in out
+
+
+def test_diff_two_tags_identical_returns_zero(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    pp = _write_pyproject(tmp_path, _DOCS)
+    same = {"references/a.md": "same\n"}
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        _serve_two_tags(make_skill, make_tarball, tmp_path, same, same),
+    )
+
+    rc = cli.main(["diff", "--pyproject", str(pp), "docs-1", "docs-2"])
+
+    out = capsys.readouterr().out
+    assert rc == 0  # the two sides are identical
+    assert "No differences." in out
+
+
+def test_diff_without_skill_dir_or_other_errors(tmp_path, capsys):
+    pp = _write_pyproject(tmp_path, _DOCS)
+
+    rc = cli.main(["diff", "--pyproject", str(pp)])
+
+    assert rc == 2  # invalid invocation
+    assert "needs --skill-dir" in capsys.readouterr().err
+
+
+def test_diff_help_documents_output_and_exit_codes(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["diff", "--help"])
+
+    out = capsys.readouterr().out
+    assert exc.value.code == 0
+    assert "unified diff" in out  # explains what is printed
+    assert "exit status:" in out  # documents the return codes
+    assert "0  the two sides are identical" in out
+    assert "1  differences were found" in out
+
+
+def test_list_help_documents_output_and_exit_codes(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["list", "--help"])
+
+    out = capsys.readouterr().out
+    assert exc.value.code == 0
+    assert "table is printed" in out  # explains what is printed
+    assert "exit status:" in out  # documents the return codes
+    assert "0  versions listed" in out
+
+
+def test_upgrade_help_documents_output_and_exit_codes(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["upgrade", "--help"])
+
+    out = capsys.readouterr().out
+    assert exc.value.code == 0
+    assert "install it over --skill-dir" in out  # explains the effect
+    assert "exit status:" in out  # documents the return codes
+    assert "0  upgraded, or already up to date" in out
+
+
+def test_build_help_documents_output_and_exit_codes(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["build", "--help"])
+
+    out = capsys.readouterr().out
+    assert exc.value.code == 0
+    assert "agent-skills validator" in out  # explains what it does
+    assert "exit status:" in out  # documents the return codes
+    assert "1  no skills found under --src" in out
 
 
 def test_upgrade_dry_run(tmp_path, monkeypatch, make_skill, make_tarball):
