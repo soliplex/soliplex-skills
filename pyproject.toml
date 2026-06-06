@@ -1,0 +1,51 @@
+# Packaging for `soliplex-skills`: shared infrastructure for releasing and
+# upgrading versioned filesystem skills (https://agentskills.io) across the
+# Soliplex projects. See README.md for scope and docs/ for the design overview.
+#
+# Dependency groups (https://docs.astral.sh/uv/concepts/dependencies):
+#   - dev:  test + lint tooling (`uv run pytest`, etc.)
+#   - docs: zensical, which builds the documentation site under docs/ into
+#           site/ (`uv run zensical build`) and drives the docs CI workflow.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "soliplex-skills"
+version = "0.1.dev0"
+description = "Shared release/upgrade infrastructure for Soliplex filesystem skills."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [{ name = "Soliplex" }]
+keywords = ["soliplex", "agentskills", "skills", "release", "github"]
+
+# Runtime dependencies are intentionally EMPTY. The version-management logic
+# is vendored into skills as a standalone, stdlib-only `skill_versions.py`, so
+# the library it consolidates must stay dependency-free too. Anything heavier
+# (e.g. flow-preserving YAML) belongs behind an optional extra, never here.
+dependencies = []
+
+[project.urls]
+Homepage = "https://soliplex.github.io/soliplex-skills/"
+Repository = "https://github.com/soliplex/soliplex-skills"
+
+[project.scripts]
+soliplex-skills = "soliplex_skills.cli:main"
+
+[dependency-groups]
+dev = [
+    "coverage",
+    "pytest",
+    "ruff",
+]
+docs = [
+    "zensical",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/soliplex_skills"]
+
+[tool.coverage.run]
+branch = true
+source = ["soliplex_skills"]
