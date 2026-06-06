@@ -212,6 +212,39 @@ def test_diff_help_documents_output_and_exit_codes(capsys):
     assert "1  differences were found" in out
 
 
+def test_list_help_documents_output_and_exit_codes(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["list", "--help"])
+
+    out = capsys.readouterr().out
+    assert exc.value.code == 0
+    assert "table is printed" in out  # explains what is printed
+    assert "exit status:" in out  # documents the return codes
+    assert "0  versions listed" in out
+
+
+def test_upgrade_help_documents_output_and_exit_codes(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["upgrade", "--help"])
+
+    out = capsys.readouterr().out
+    assert exc.value.code == 0
+    assert "install it over --skill-dir" in out  # explains the effect
+    assert "exit status:" in out  # documents the return codes
+    assert "0  upgraded, or already up to date" in out
+
+
+def test_build_help_documents_output_and_exit_codes(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["build", "--help"])
+
+    out = capsys.readouterr().out
+    assert exc.value.code == 0
+    assert "agent-skills validator" in out  # explains what it does
+    assert "exit status:" in out  # documents the return codes
+    assert "1  no skills found under --src" in out
+
+
 def test_upgrade_dry_run(tmp_path, monkeypatch, make_skill, make_tarball):
     pp = _write_pyproject(tmp_path, _DOCS)
     installed = make_skill(

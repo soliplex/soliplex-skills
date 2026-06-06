@@ -47,7 +47,59 @@ _DIFF_EPILOG = """\
 exit status:
   0  the two sides are identical
   1  differences were found (and printed)
-  2  invalid invocation (no --skill-dir and no second tag)\
+  2  invalid invocation, or invalid skill configuration\
+"""
+
+_LIST_DESCRIPTION = """\
+List a skill's published versions, newest first.
+
+Shows both rolling builds and tagged releases that carry the skill's
+release asset; the '...-latest' pointer tag is excluded. Filter with
+--kind. By default a table is printed -- TAG, DATE (published), KIND
+('rolling' or 'release'), and the 7-char source COMMIT -- one row per
+version, or 'No published versions found.' when there are none. Pass
+--json to emit the same rows (plus each release's 'prerelease' flag)
+as a JSON array.\
+"""
+
+_LIST_EPILOG = """\
+exit status:
+  0  versions listed (or none are published)
+  2  invalid skill configuration\
+"""
+
+_UPGRADE_DESCRIPTION = """\
+Download a published version and install it over --skill-dir.
+
+TARGET is a tag or 'latest' (the default, resolved via the skill's
+pointer manifest). The download's sha256 is verified against the
+manifest when known; files are then replaced in place -- directories
+removed first -- so files deleted upstream do not linger. If the
+installed source_commit already matches TARGET it is a no-op unless
+--force is given. --dry-run reports the plan on stdout without writing
+anything.\
+"""
+
+_UPGRADE_EPILOG = """\
+exit status:
+  0  upgraded, or already up to date (a no-op)
+  2  invalid skill configuration\
+"""
+
+_BUILD_DESCRIPTION = """\
+Assemble, stamp, and validate skill(s) into a distribution directory.
+
+Copies each skill under --src into <dist>/<name>/ (skipping
+__pycache__), stamps its SKILL.md with --commit (defaulting to the
+source tree's git HEAD), and -- unless --no-validate -- runs the
+agent-skills validator. With --skill only that one skill is built;
+otherwise every skill directory under --src is built.\
+"""
+
+_BUILD_EPILOG = """\
+exit status:
+  0  all skills built
+  1  no skills found under --src\
 """
 
 
@@ -137,9 +189,19 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="soliplex-skills")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_list = sub.add_parser("list", help="List published skill versions.")
+    p_list = sub.add_parser(
+        "list",
+        help="List published skill versions.",
+        description=_LIST_DESCRIPTION,
+        epilog=_LIST_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     _add_spec_args(p_list)
-    p_list.add_argument("--kind", choices=["rolling", "release"])
+    p_list.add_argument(
+        "--kind",
+        choices=["rolling", "release"],
+        help="Show only rolling builds or only tagged releases.",
+    )
     p_list.add_argument(
         "--json", action="store_true", help="Emit machine-readable JSON."
     )
@@ -182,7 +244,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p_diff.set_defaults(func=_cmd_diff)
 
     p_up = sub.add_parser(
-        "upgrade", help="Install a published version in place."
+        "upgrade",
+        help="Install a published version in place.",
+        description=_UPGRADE_DESCRIPTION,
+        epilog=_UPGRADE_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     _add_spec_args(p_up)
     p_up.add_argument(
@@ -191,21 +257,56 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Installed skill root (the directory holding SKILL.md).",
     )
-    p_up.add_argument("target", nargs="?", default="latest")
-    p_up.add_argument("--force", action="store_true")
-    p_up.add_argument("--dry-run", action="store_true")
+    p_up.add_argument(
+        "target",
+        nargs="?",
+        default="latest",
+        help="Published version to install: a tag, or 'latest' (the default).",
+    )
+    p_up.add_argument(
+        "--force",
+        action="store_true",
+        help="Reinstall even when the installed commit already matches "
+        "TARGET.",
+    )
+    p_up.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report what would be installed without writing anything.",
+    )
     p_up.set_defaults(func=_cmd_upgrade)
 
     p_build = sub.add_parser(
-        "build", help="Assemble/stamp/validate a skill into dist/."
+        "build",
+        help="Assemble/stamp/validate a skill into dist/.",
+        description=_BUILD_DESCRIPTION,
+        epilog=_BUILD_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_build.add_argument("--src", required=True, type=Path)
-    p_build.add_argument("--dist", required=True, type=Path)
+    p_build.add_argument(
+        "--src",
+        required=True,
+        type=Path,
+        help="Directory containing the skill source tree(s).",
+    )
+    p_build.add_argument(
+        "--dist",
+        required=True,
+        type=Path,
+        help="Output directory; each skill lands in <dist>/<name>/.",
+    )
     p_build.add_argument(
         "--skill", help="skill dir under src/ to build (default: all)."
     )
-    p_build.add_argument("--commit")
-    p_build.add_argument("--no-validate", action="store_true")
+    p_build.add_argument(
+        "--commit",
+        help="Source commit to stamp into SKILL.md (default: git HEAD).",
+    )
+    p_build.add_argument(
+        "--no-validate",
+        action="store_true",
+        help="Skip the agent-skills validation step.",
+    )
     p_build.set_defaults(func=_cmd_build)
 
     return parser
