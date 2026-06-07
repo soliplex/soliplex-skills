@@ -26,6 +26,7 @@ from soliplex_skills import build
 from soliplex_skills import config
 from soliplex_skills.versions import SkillSpec
 from soliplex_skills.versions import SkillVersions
+from soliplex_skills.versions import format_list_table
 
 _DIFF_DESCRIPTION = """\
 Compare an installed skill against a published version, or two
@@ -57,9 +58,11 @@ Shows both rolling builds and tagged releases that carry the skill's
 release asset; the '...-latest' pointer tag is excluded. Filter with
 --kind. By default a table is printed -- TAG, DATE (published), KIND
 ('rolling' or 'release'), and the 7-char source COMMIT -- one row per
-version, or 'No published versions found.' when there are none. Pass
---json to emit the same rows (plus each release's 'prerelease' flag)
-as a JSON array.\
+version, or 'No published versions found.' when there are none. The
+row matching --skill-dir is marked 'installed' and the row the
+'latest' pointer resolves to is marked 'latest'. Pass --json to emit
+the same rows (each with 'prerelease', 'installed', and 'latest'
+flags) as a JSON array.\
 """
 
 _LIST_EPILOG = """\
@@ -129,18 +132,16 @@ def _resolve_spec(args: argparse.Namespace) -> SkillSpec:
 
 
 def _cmd_list(args: argparse.Namespace) -> int:
-    rows = SkillVersions(_resolve_spec(args)).list(kind=args.kind)
+    rows = SkillVersions(_resolve_spec(args)).list(
+        kind=args.kind,
+        installed_path=args.skill_dir,
+        mark_latest=True,
+    )
     if args.json:
         json.dump(rows, sys.stdout, indent=2)
         sys.stdout.write("\n")
         return 0
-    if not rows:
-        print("No published versions found.")
-        return 0
-    for row in rows:
-        print(
-            f"{row['tag']}  {row['date']}  {row['kind']:<7}  {row['commit']}"
-        )
+    print(format_list_table(rows))
     return 0
 
 
@@ -197,6 +198,12 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     _add_spec_args(p_list)
+    p_list.add_argument(
+        "--skill-dir",
+        type=Path,
+        help="Installed skill root (the directory holding SKILL.md); its "
+        "matching row is flagged 'installed'.",
+    )
     p_list.add_argument(
         "--kind",
         choices=["rolling", "release"],
