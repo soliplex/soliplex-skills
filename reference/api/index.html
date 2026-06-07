@@ -1191,8 +1191,8 @@ import versions</code> then <code>versions.SkillVersions(...)</code>). The headl
 <td>the repo's current commit SHA, or <code>None</code></td>
 </tr>
 <tr>
-<td><code>build_skill(name, *, src, dist, commit=None, validate=True)</code></td>
-<td>build one skill into <code>dist/&lt;name&gt;/</code></td>
+<td><code>build_skill(name, *, src, dist, commit=None, validate=True, generator=None)</code></td>
+<td>build one skill into <code>dist/&lt;name&gt;/</code>; optional <code>generator(out_dir)</code> runs between stamp and validate</td>
 </tr>
 </tbody>
 </table>

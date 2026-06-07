@@ -911,8 +911,12 @@ is the <a href="../publishing/">publishing workflow</a>'s job, not the build scr
   (those containing a <code>SKILL.md</code>) under <code>skills_dir</code>. Repos that ship several
   skills (e.g. <code>soliplex-concierge</code>) iterate over this.</li>
 <li><strong><code>git_head_commit(repo_dir)</code></strong> — the repo's current commit SHA, or <code>None</code>.</li>
-<li><strong><code>build_skill(name, *, src, dist, commit=None, validate=True)</code></strong> — run the
-  three steps above and return the built <code>dist/&lt;name&gt;/</code> path.</li>
+<li><strong><code>build_skill(name, *, src, dist, commit=None, validate=True,
+  generator=None)</code></strong> — run the three steps above and return the built
+  <code>dist/&lt;name&gt;/</code> path. An optional <code>generator(out_dir)</code> runs between the stamp
+  and validate steps — a hook for build-time content (e.g. the docs skill
+  copies <code>docs/</code> into <code>references/</code> and appends a nav-derived map to
+  <code>SKILL.md</code>).</li>
 </ul>
 <p>Stamping itself lives in <a href="../../reference/api/"><code>metadata.stamp_source_commit</code></a>,
 shared with the version-management client so the <em>write</em> and the <em>read</em> of
