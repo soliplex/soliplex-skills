@@ -11,6 +11,10 @@ across the Soliplex projects:
 | `soliplex-template` | `soliplex-template` |
 | `soliplex-concierge`| `soliplex-concierge-installer`, `soliplex-concierge-room`, `soliplex-concierge-admin` |
 
+See the **[Skills catalog](overview/skills-catalog.md)** for what each skill
+does, where it runs (inside Soliplex or in an external coding agent), its source
+repo, and its latest release.
+
 !!! note "Status"
     This site documents the **mechanisms** these projects use and the
     **library API** that provides them. The library is implemented and tested

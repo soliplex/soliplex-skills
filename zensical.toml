@@ -31,6 +31,7 @@ nav = [
         "overview/concepts.md",
         "overview/release-model.md",
         "overview/skill-anatomy.md",
+        "overview/skills-catalog.md",
     ] },
     { "Mechanisms" = [
         "mechanisms/building.md",

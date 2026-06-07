@@ -15,8 +15,7 @@ soliplex-docs/
 
 `scripts/skill_versions.py` is the version-management helper bundled *inside*
 the skill so it can manage its own installed copy without any external tooling.
-Today it is a standalone copy in every skill; the goal of this project is for
-it to become a thin shim over the shared library (see
+It is a thin shim over the shared `soliplex-skills` library (see
 [Managing an installed skill](../mechanisms/versions-cli.md)).
 
 ## `SKILL.md` frontmatter
