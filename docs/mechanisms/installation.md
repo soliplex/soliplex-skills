@@ -3,8 +3,7 @@
 Where [managing an installed skill](versions-cli.md) upgrades a copy that is
 *already* on disk, this mechanism covers the **first-time install**: resolving
 a published skill to an asset, downloading and verifying it, and extracting its
-skill root. It generalizes the `PublishedSkill` dataclass and `download_skill`
-helper found in the `soliplex-concierge` installer.
+skill root.
 
 ## Resolving and downloading
 

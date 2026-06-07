@@ -2,10 +2,8 @@
 
 These are the low-level filesystem/archive primitives that the public
 :mod:`soliplex_skills.versions` and :mod:`soliplex_skills.install` modules
-share. They are the de-duplicated counterpart of the ``_sha256`` /
-``_download_and_extract`` / ``_fetch_skill`` / ``_install_over`` /
-``_temp_dest`` helpers that every vendored ``skill_versions.py`` carried its
-own copy of.
+share: checksumming, download-and-extract, finding the skill root, installing
+over an existing copy, and a temporary-directory context manager.
 
 This module is private (underscore-prefixed): it is not part of the public API
 and may change without notice.

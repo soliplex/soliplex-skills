@@ -1,18 +1,11 @@
 """Read and stamp a skill's installed identity in ``SKILL.md`` frontmatter.
 
 A built skill records the commit it was assembled from as
-``metadata.source_commit`` in its ``SKILL.md`` YAML frontmatter. That value is
-the skill's installed identity: the publishing workflow stamps it at build
-time, and ``versions``/``releases`` read it back to tell which published build
-is installed.
+``metadata.source_commit`` in its ``SKILL.md`` YAML frontmatter.
 
-This module consolidates two functions copy-pasted across the sibling repos:
-
-* ``stamp_source_commit`` -- identical in
-  ``soliplex-template/scripts/build_skill.py`` and
-  ``soliplex-concierge/scripts/build_skills.py``.
-* the ``_COMMIT_RE`` / ``_commit_of`` reader embedded in every vendored
-  ``skill_versions.py``.
+That value is the skill's installed identity: the build step stamps it
+(:func:`stamp_source_commit`) and ``versions``/``releases`` read it back
+(:func:`read_source_commit`) to tell which published build is installed.
 """
 
 from __future__ import annotations

@@ -2,17 +2,10 @@
 
 Where :mod:`soliplex_skills.versions` manages a skill that is *already*
 installed (upgrading it in place), this module covers the first-time install:
-resolve a published skill to an asset, download and verify it, and extract its
-skill root. This generalizes the ``PublishedSkill`` dataclass and
-``download_skill`` helper found in
-``soliplex-concierge/.../installer/scripts/apply.py``.
 
-.. note::
-
-   The stack-editing helpers from ``apply.py`` (surgically wiring a skill into
-   a target Soliplex stack's ``pyproject.toml`` / ``installation.yaml`` /
-   rooms) are intentionally out of scope for now -- they belong in a later,
-   installer-specific module.
+- resolve a published skill to an asset
+- download and verify it
+- extract its skill root.
 """
 
 from __future__ import annotations

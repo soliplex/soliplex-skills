@@ -1,9 +1,9 @@
 # Building a skill
 
 Before a skill can be published it is **assembled, stamped, and validated**
-into a distribution directory. This is the step the per-repo
-`build_skill.py` / `build_skills.py` / `generate_docs_skill.py` scripts perform
-today; the [`build` module](../reference/api.md) consolidates it.
+into a distribution directory. Each repo's build script (`build_skill.py`, or
+`build_skills.py` for the multi-skill `soliplex-concierge`) does this through
+the [`build` module](../reference/api.md).
 
 ## The pipeline
 
@@ -44,9 +44,9 @@ Stamping itself lives in [`metadata.stamp_source_commit`](../reference/api.md),
 shared with the version-management client so the *write* and the *read* of
 `source_commit` cannot drift apart.
 
-!!! note "What this de-duplicates"
-    `stamp_source_commit()` is currently byte-for-byte identical in
-    `soliplex-template/scripts/build_skill.py` and
-    `soliplex-concierge/scripts/build_skills.py`, and `discover_skills()` /
-    `build_skill()` are the same shape across all three repos. Centralizing
-    them here removes that copy-paste.
+!!! note "One build path"
+    Every repo builds through `build.build_skill`, so stamping
+    (`metadata.stamp_source_commit`) and validation behave identically across
+    skills. `discover_skills` builds several at once (the `soliplex-concierge`
+    case), and an optional `generator` hook injects build-time content (the
+    `soliplex-docs` documentation map).
