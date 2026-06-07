@@ -20,11 +20,9 @@ requires-python = ">=3.12"
 authors = [{ name = "Soliplex" }]
 keywords = ["soliplex", "agentskills", "skills", "release", "github"]
 
-# Runtime dependencies are intentionally EMPTY. The version-management logic
-# is vendored into skills as a standalone, stdlib-only `skill_versions.py`, so
-# the library it consolidates must stay dependency-free too. Anything heavier
-# (e.g. flow-preserving YAML) belongs behind an optional extra, never here.
-dependencies = []
+dependencies = [
+    "skills-ref",
+]
 
 [project.urls]
 Homepage = "https://soliplex.github.io/soliplex-skills/"
