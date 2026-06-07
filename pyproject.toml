@@ -12,7 +12,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "soliplex-skills"
-version = "0.2.1"
+version = "0.2.2"
 description = "Shared release/upgrade infrastructure for Soliplex filesystem skills."
 readme = "README.md"
 license = "MIT"
