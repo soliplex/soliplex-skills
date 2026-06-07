@@ -123,6 +123,29 @@ def test_build_skill_validate_failure(tmp_path, make_skill, skills_ref):
     skills_ref.validate.assert_called_once_with(dist / "demo")
 
 
+def test_build_skill_w_generator(tmp_path, make_skill, monkeypatch):
+    src = tmp_path / "skills"
+    make_skill("demo", commit=None, parent=src)
+    dist = tmp_path / "dist"
+
+    stamp = mock.Mock()
+    monkeypatch.setattr(build.metadata, "stamp_source_commit", stamp)
+
+    validate = mock.Mock(return_value=[])
+    monkeypatch.setattr(build, "skills_ref", mock.Mock(validate=validate))
+
+    generator = mock.Mock()
+
+    build.build_skill(
+        "demo", src=src, dist=dist, commit="abc1234", generator=generator
+    )
+
+    out = dist / "demo"
+    stamp.assert_called_once_with(out / "SKILL.md", "abc1234")
+    generator.assert_called_once_with(out)
+    validate.assert_called_once_with(out)
+
+
 def test_build_skill_unstamped_without_commit(
     tmp_path, make_skill, monkeypatch
 ):
