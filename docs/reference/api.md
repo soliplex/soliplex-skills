@@ -61,7 +61,7 @@ import versions` then `versions.SkillVersions(...)`). The headline types are:
 | --- | --- |
 | `discover_skills(skills_dir)` | names of skill dirs (those with a `SKILL.md`) |
 | `git_head_commit(repo_dir)` | the repo's current commit SHA, or `None` |
-| `build_skill(name, *, src, dist, commit=None, validate=True)` | build one skill into `dist/<name>/` |
+| `build_skill(name, *, src, dist, commit=None, validate=True, generator=None)` | build one skill into `dist/<name>/`; optional `generator(out_dir)` runs between stamp and validate |
 
 ## `install` — first-time install
 

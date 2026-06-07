@@ -33,8 +33,12 @@ The [`build` module](../reference/api.md):
   (those containing a `SKILL.md`) under `skills_dir`. Repos that ship several
   skills (e.g. `soliplex-concierge`) iterate over this.
 - **`git_head_commit(repo_dir)`** — the repo's current commit SHA, or `None`.
-- **`build_skill(name, *, src, dist, commit=None, validate=True)`** — run the
-  three steps above and return the built `dist/<name>/` path.
+- **`build_skill(name, *, src, dist, commit=None, validate=True,
+  generator=None)`** — run the three steps above and return the built
+  `dist/<name>/` path. An optional `generator(out_dir)` runs between the stamp
+  and validate steps — a hook for build-time content (e.g. the docs skill
+  copies `docs/` into `references/` and appends a nav-derived map to
+  `SKILL.md`).
 
 Stamping itself lives in [`metadata.stamp_source_commit`](../reference/api.md),
 shared with the version-management client so the *write* and the *read* of
