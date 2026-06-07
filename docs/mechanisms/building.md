@@ -11,7 +11,7 @@ today; the [`build` module](../reference/api.md) consolidates it.
 flowchart LR
     S[skills/&lt;name&gt;/] -->|copytree| D[dist/&lt;name&gt;/]
     D -->|stamp source_commit| D2[dist/&lt;name&gt;/ stamped]
-    D2 -->|agentskills validate| OK[validated build]
+    D2 -->|skills_ref.validate| OK[validated build]
 ```
 
 1. **Assemble** — copy the skill's source tree into `dist/<name>/`, skipping
@@ -20,7 +20,7 @@ flowchart LR
    commit defaults to the repo's git `HEAD`). The tracked source is never
    modified.
 3. **Validate** — run the agent-skills reference validator
-   (`agentskills validate`) against the built directory.
+   (`skills_ref.validate()`) against the built directory.
 
 Packaging the validated `dist/<name>/` into release assets (a tarball and zip)
 is the [publishing workflow](publishing.md)'s job, not the build script's.

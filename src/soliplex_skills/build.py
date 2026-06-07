@@ -3,8 +3,9 @@
 This is the build half of the release pipeline, generalizing the per-repo
 ``build_skill.py`` / ``build_skills.py`` / ``generate_docs_skill.py`` scripts:
 copy a skill's source tree into ``dist/<name>/``, stamp its ``SKILL.md`` with
-the source commit, and validate it with the agent-skills reference tool. The
-CI workflow then packages ``dist/<name>/`` into release assets.
+the source commit, and validate it with the agent-skills reference library.
+
+The CI workflow then packages ``dist/<name>/`` into release assets.
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ from __future__ import annotations
 import shutil
 import subprocess
 from pathlib import Path
+
+import skills_ref
 
 from soliplex_skills import metadata
 
@@ -23,21 +26,15 @@ class SkillNotFound(ValueError):
         super().__init__(f"no skill named {name!r} under {skills_dir}")
 
 
-class ValidatorUnavailable(RuntimeError):
-    """Neither ``agentskills`` nor ``uvx`` is available to validate a skill."""
-
-    def __init__(self) -> None:
-        super().__init__(
-            "cannot find the agent-skills validator; install 'skills-ref' "
-            "or run under 'uv'/'uvx'"
-        )
-
-
 class ValidationFailed(RuntimeError):
     """The agent-skills validator rejected a built skill."""
 
-    def __init__(self, name: str):
-        super().__init__(f"skill validation failed for {name!r}")
+    def __init__(self, name: str, errors: list[str]):
+        self.name = name
+        self.errors = errors
+        super().__init__(
+            f"skill validation failed for {name!r}:\n{'\n'.join(errors)}"
+        )
 
 
 def discover_skills(skills_dir: Path) -> list[str]:
@@ -67,22 +64,6 @@ def git_head_commit(repo_dir: Path) -> str | None:
     except subprocess.CalledProcessError:
         return None
     return result.stdout.strip() or None
-
-
-def validator_cmd() -> list[str]:
-    """Resolve how to invoke the agent-skills validator.
-
-    Prefer the ``agentskills`` executable on PATH; otherwise fall back to
-    ``uvx --from skills-ref agentskills``. Raises :class:`ValidatorUnavailable`
-    when neither is present.
-    """
-    exe = shutil.which("agentskills")
-    if exe:
-        return [exe, "validate"]
-    uvx = shutil.which("uvx")
-    if uvx:
-        return [uvx, "--from", "skills-ref", "agentskills", "validate"]
-    raise ValidatorUnavailable
 
 
 def build_skill(
@@ -115,8 +96,8 @@ def build_skill(
         metadata.stamp_source_commit(out / "SKILL.md", resolved)
 
     if validate:
-        result = subprocess.run([*validator_cmd(), str(out)], check=False)
-        if result.returncode != 0:
-            raise ValidationFailed(name)
+        errors = skills_ref.validate(out)
+        if errors:
+            raise ValidationFailed(name, errors)
 
     return out
