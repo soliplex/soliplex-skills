@@ -1148,8 +1148,8 @@ import versions</code> then <code>versions.SkillVersions(...)</code>). The headl
 <td>per-skill configuration</td>
 </tr>
 <tr>
-<td><code>SkillVersions(spec).list(*, kind=None)</code></td>
-<td>published versions, newest first</td>
+<td><code>SkillVersions(spec).list(*, kind=None, installed_path=None, mark_latest=False)</code></td>
+<td>published versions, newest first; flags the installed / latest rows</td>
 </tr>
 <tr>
 <td><code>SkillVersions(spec).diff(installed_path, target="latest", *, name_only=False)</code></td>
@@ -1162,6 +1162,10 @@ import versions</code> then <code>versions.SkillVersions(...)</code>). The headl
 <tr>
 <td><code>SkillVersions(spec).upgrade(installed_path, target="latest", *, force=False, dry_run=False)</code></td>
 <td>install a version in place</td>
+</tr>
+<tr>
+<td><code>format_list_table(rows)</code></td>
+<td>render <code>list</code> rows as the aligned, marked table</td>
 </tr>
 <tr>
 <td><code>CompareScope</code></td>

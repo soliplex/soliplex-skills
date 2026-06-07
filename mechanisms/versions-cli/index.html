@@ -1030,12 +1030,16 @@ which reads each skill's configuration from a <code>[tool.soliplex-skills]</code
 in <code>pyproject.toml</code> (see <a href="#cli-configuration">CLI configuration</a>) so you don't
 repeat the constants on the command line:</p>
 <div class="language-console highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">soliplex-skills list --skill soliplex-docs</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">soliplex-skills diff --skill soliplex-docs --skill-dir path/to/installed</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="go">soliplex-skills diff --skill soliplex-docs v0.67 v0.68</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="go">soliplex-skills upgrade --skill soliplex-docs --skill-dir path/to/installed --dry-run</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">soliplex-skills list --skill soliplex-docs --skill-dir path/to/installed</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="go">soliplex-skills diff --skill soliplex-docs --skill-dir path/to/installed</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="go">soliplex-skills diff --skill soliplex-docs v0.67 v0.68</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="go">soliplex-skills upgrade --skill soliplex-docs --skill-dir path/to/installed --dry-run</span>
 </span></code></pre></div>
 <p><code>--skill</code> is optional when the config defines a single skill; <code>--pyproject</code>
-overrides the default upward search for <code>pyproject.toml</code>.</p>
+overrides the default upward search for <code>pyproject.toml</code>. <code>--skill-dir</code> is
+optional for <code>list</code> (it only adds the <code>installed</code> marker — the table and the
+<code>latest</code> marker render without it) and required for <code>diff</code>/<code>upgrade</code> unless
+<code>diff</code> is given two tags.</p>
 <h2 id="cli-configuration">CLI configuration<a class="headerlink" href="#cli-configuration" title="Permanent link">&para;</a></h2>
 <p>Each skill records its <a href="../../reference/api/"><code>SkillSpec</code></a> once, as an array of
 tables. The <code>rolling_prefix</code> is expanded into the rolling-tag regex, and
