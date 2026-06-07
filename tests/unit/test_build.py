@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from unittest import mock
 
 import pytest
 
@@ -91,25 +92,35 @@ def test_build_skill_default_commit_uses_git_head(
     assert metadata.read_source_commit(out / "SKILL.md") == "deadbee"
 
 
-def test_build_skill_validate_success(tmp_path, make_skill, monkeypatch):
+@pytest.fixture
+def skills_ref(monkeypatch):
+    skills_ref = mock.Mock(spec_set=["validate"])
+    monkeypatch.setattr(build, "skills_ref", skills_ref)
+    return skills_ref
+
+
+def test_build_skill_validate_success(tmp_path, make_skill, skills_ref):
     src = tmp_path / "skills"
     make_skill("demo", parent=src)
     dist = tmp_path / "dist"
-    monkeypatch.setattr(build, "validator_cmd", lambda: ["true"])
+    skills_ref.validate.return_value = []
 
     out = build.build_skill("demo", src=src, dist=dist, validate=True)
 
     assert (out / "SKILL.md").is_file()
+    skills_ref.validate.assert_called_once_with(dist / "demo")
 
 
-def test_build_skill_validate_failure(tmp_path, make_skill, monkeypatch):
+def test_build_skill_validate_failure(tmp_path, make_skill, skills_ref):
     src = tmp_path / "skills"
     make_skill("demo", parent=src)
     dist = tmp_path / "dist"
-    monkeypatch.setattr(build, "validator_cmd", lambda: ["false"])
+    skills_ref.validate.return_value = ["test error"]
 
     with pytest.raises(build.ValidationFailed):
         build.build_skill("demo", src=src, dist=dist, validate=True)
+
+    skills_ref.validate.assert_called_once_with(dist / "demo")
 
 
 def test_build_skill_unstamped_without_commit(
@@ -123,36 +134,6 @@ def test_build_skill_unstamped_without_commit(
     out = build.build_skill("demo", src=src, dist=dist, validate=False)
 
     assert metadata.read_source_commit(out / "SKILL.md") is None
-
-
-def test_validator_cmd_prefers_agentskills(monkeypatch):
-    monkeypatch.setattr(build.shutil, "which", lambda name: "/bin/agentskills")
-
-    cmd = build.validator_cmd()
-
-    assert cmd == ["/bin/agentskills", "validate"]
-
-
-def test_validator_cmd_falls_back_to_uvx(monkeypatch):
-    which = {"agentskills": None, "uvx": "/bin/uvx"}
-    monkeypatch.setattr(build.shutil, "which", lambda name: which[name])
-
-    cmd = build.validator_cmd()
-
-    assert cmd == [
-        "/bin/uvx",
-        "--from",
-        "skills-ref",
-        "agentskills",
-        "validate",
-    ]
-
-
-def test_validator_cmd_unavailable_raises(monkeypatch):
-    monkeypatch.setattr(build.shutil, "which", lambda name: None)
-
-    with pytest.raises(build.ValidatorUnavailable):
-        build.validator_cmd()
 
 
 def test_git_head_commit_returns_sha(tmp_path, monkeypatch):
