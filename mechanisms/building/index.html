@@ -892,7 +892,7 @@ today; the <a href="../../reference/api/"><code>build</code> module</a> consolid
 <pre class="mermaid"><code>flowchart LR
     S[skills/&amp;lt;name&amp;gt;/] --&gt;|copytree| D[dist/&amp;lt;name&amp;gt;/]
     D --&gt;|stamp source_commit| D2[dist/&amp;lt;name&amp;gt;/ stamped]
-    D2 --&gt;|agentskills validate| OK[validated build]</code></pre>
+    D2 --&gt;|skills_ref.validate| OK[validated build]</code></pre>
 <ol>
 <li><strong>Assemble</strong> — copy the skill's source tree into <code>dist/&lt;name&gt;/</code>, skipping
    <code>__pycache__</code>.</li>
@@ -900,7 +900,7 @@ today; the <a href="../../reference/api/"><code>build</code> module</a> consolid
    commit defaults to the repo's git <code>HEAD</code>). The tracked source is never
    modified.</li>
 <li><strong>Validate</strong> — run the agent-skills reference validator
-   (<code>agentskills validate</code>) against the built directory.</li>
+   (<code>skills_ref.validate()</code>) against the built directory.</li>
 </ol>
 <p>Packaging the validated <code>dist/&lt;name&gt;/</code> into release assets (a tarball and zip)
 is the <a href="../publishing/">publishing workflow</a>'s job, not the build script's.</p>
