@@ -9,37 +9,27 @@ across the Soliplex projects:
 | ------------------- | ------------------- |
 | `soliplex`          | `soliplex-docs` |
 | `soliplex-template` | `soliplex-template` |
-| `soliplex-concierge`| `soliplex-concierge-installer`, `soliplex-concierge.room`, `soliplex-concierge.admin` |
+| `soliplex-concierge`| `soliplex-concierge-installer`, `soliplex-concierge-room`, `soliplex-concierge-admin` |
 
 !!! note "Status"
     This site documents the **mechanisms** these projects use and the
-    **library API** that absorbs them. The library is implemented and tested
-    (100% coverage); the sibling repos have not yet been migrated to consume
-    it — see [future adoption](#future-adoption).
+    **library API** that provides them. The library is implemented and tested
+    (100% branch coverage).
 
-## The problem: one mechanism, copied many times
+## What it provides
 
-The release/upgrade machinery works well, but it lives as **duplicated source**
-in every project:
+One importable, tested Python package holding the release/upgrade machinery a
+versioned filesystem skill needs:
 
-- **`skill_versions.py`** — a ~575-line, standard-library-only script is
-  *vendored verbatim* into every skill's `scripts/` directory (five-plus
-  near-identical copies). Only a handful of constants differ
-  (`OWNER`/`REPO`/`ASSET_TARBALL`/`POINTER_TAG` and a rolling-tag regex).
-  `soliplex-concierge` already marks these copies for coverage-omit with a
-  note that the logic is *"slated to move to the shared `soliplex-skills`
-  library."*
-- **`stamp_source_commit()`** — an identical frontmatter-mutation function is
-  copied into both `soliplex-template/scripts/build_skill.py` and
-  `soliplex-concierge/scripts/build_skills.py`.
-- **GitHub Actions release workflows** — three `build-*skill*.yaml` workflows
-  repeat the same dual-mode publishing logic (rolling builds + a `…-latest`
-  pointer, or snapshots attached to a release tag), `version.json` manifest
-  generation, and prune-to-`KEEP_ROLLING` housekeeping.
-
-`soliplex-skills` exists to hold that logic **once**, as an importable,
-testable Python package — so the vendored `skill_versions.py` collapses to a
-thin shim and the build scripts and workflows call into a shared library.
+- **`versions`** — `list` / `diff` / `upgrade` a published skill against its
+  GitHub releases, driven by a per-skill [`SkillSpec`](reference/api.md).
+- **`build`** — assemble a skill into `dist/<name>/`: copy the source tree,
+  stamp `SKILL.md` with the source commit, and validate it (with an optional
+  `generator` hook for build-time content).
+- **`releases`** / **`manifest`** / **`metadata`** / **`_archive`** — GitHub
+  release access, the `version.json` schema, reading/stamping `SKILL.md`'s
+  `source_commit`, and the download/verify/extract primitives the others build
+  on.
 
 ## Where to start
 
@@ -49,7 +39,7 @@ thin shim and the build scripts and workflows call into a shared library.
     [release model](overview/release-model.md), then the
     [Mechanisms](mechanisms/building.md) section for how building, publishing,
     and installation map onto the library API. The
-    [API reference](reference/api.md) is the consolidated surface.
+    [API reference](reference/api.md) is the full surface.
 
 === "I have a skill installed and want to manage it"
 
@@ -57,20 +47,19 @@ thin shim and the build scripts and workflows call into a shared library.
     how to **list** published versions, **diff** your installed copy against a
     published one, and **upgrade** (or downgrade) in place.
 
-## Future adoption
+## How the skills use it
 
-The library is in place; migrating the sibling repos to consume it is the
-remaining work, and is deliberately out of scope for `soliplex-skills` itself:
-
-- **The vendored `skill_versions.py` becomes a thin shim.** Rather than import
-  `soliplex_skills` (which is not installed in the environment an *installed*
-  skill runs in), each skill will ship a small
+- **Each skill bundles a thin `skill_versions.py`.** Because an installed skill
+  runs in an environment where `soliplex_skills` is not installed, it is a small
   [PEP 723](https://peps.python.org/pep-0723/) script that declares
-  `# dependencies = ["soliplex-skills"]` in its inline metadata, so `uv`/`uvx`
-  provisions the library at run time. The shim fills in a
+  `# dependencies = ["soliplex-skills>=…"]` in its inline metadata, letting `uv`
+  provision the library at run time. It fills in a
   [`SkillSpec`](reference/api.md) and delegates to `SkillVersions`.
-- **The build scripts and release workflows call into the library** instead of
-  re-implementing `stamp_source_commit`, manifest emission, and tag
-  classification.
-
-Until then, the sibling repos keep their copy-pasted scripts unchanged.
+- **Build scripts call `soliplex_skills.build`.** `soliplex-template` and
+  `soliplex-concierge` build via `build.build_skill` (`discover_skills` plus a
+  loop for the multi-skill concierge repo); the `soliplex-docs` builder passes a
+  `generator` hook to `build_skill` for its nav-derived documentation map. All
+  reuse `metadata.stamp_source_commit` and in-process `skills_ref` validation.
+- **Publishing lives in each repo's GitHub Actions workflow** — dual-mode
+  releases, the `version.json` manifest, and prune-to-`KEEP_ROLLING` — and the
+  build step it runs is the part that calls this library.

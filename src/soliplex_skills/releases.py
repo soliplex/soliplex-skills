@@ -1,15 +1,21 @@
 """Query a repository's GitHub releases and classify skill-bearing ones.
 
-This is the GitHub-facing half of the version-management logic vendored in
-every ``skill_versions.py``: paginate the releases API, keep the releases that
-actually carry a skill's asset tarball, and classify each as a *rolling* build
-or a *tagged* release. It also resolves a skill's ``…-latest`` pointer to a
+This module is the GitHub-facing half of the version-management logic:
+
+- Paginate the releases API
+- Keep the releases that actually carry a skill's asset tarball
+- Classify each as a *rolling* build or a *tagged* release.
+
+It also resolves a skill's ``…-latest`` pointer to a
 :class:`~soliplex_skills.manifest.ReleaseManifest`.
 
-Network access to ``api.github.com`` / ``github.com`` is required. A token in
-``GITHUB_TOKEN`` or ``GH_TOKEN`` raises the API rate limit. Only ``https`` and
-``file`` URL schemes are honored (the ``file`` scheme supports the
-``--asset-url`` testing override).
+Notes:
+
+- Network access to ``api.github.com`` / ``github.com`` is required
+  (token in ``GITHUB_TOKEN`` or ``GH_TOKEN`` raises the API rate limit).
+
+- Only ``https`` and ``file`` URL schemes are honored (the ``file``
+  scheme supports the ``--asset-url`` testing override).
 """
 
 from __future__ import annotations

@@ -130,9 +130,8 @@ sv.diff(installed_path, "latest")
 sv.upgrade(installed_path, "latest", dry_run=True)
 ```
 
-!!! note "What this de-duplicates"
-    The ~575-line `skill_versions.py` is vendored verbatim into five or more
-    skills, differing only in those `SkillSpec` fields and the `compare_scope`
-    toggle. Consuming this library, the vendored script collapses to a thin
-    shim that fills in a `SkillSpec` and delegates to `SkillVersions` (see
-    [future adoption](../index.md#future-adoption)).
+!!! note "The bundled shim"
+    Each skill's `scripts/skill_versions.py` is a thin shim: it fills in a
+    `SkillSpec` (the per-skill constants plus the `compare_scope` toggle) and
+    delegates to `SkillVersions` — see
+    [How the skills use it](../index.md#how-the-skills-use-it).

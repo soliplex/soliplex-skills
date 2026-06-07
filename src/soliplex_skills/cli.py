@@ -1,7 +1,6 @@
 """Console entry point: ``soliplex-skills <command>``.
 
-Dispatches the subcommands that the per-skill ``skill_versions.py`` and build
-scripts expose today, but driven by the consolidated library:
+The installed console script. It dispatches:
 
 * ``list``    -- published versions of a skill (see :mod:`.versions`)
 * ``diff``    -- installed skill vs. a published version

@@ -1,9 +1,13 @@
 """Assemble, stamp, and validate a skill into a distribution directory.
 
-This is the build half of the release pipeline, generalizing the per-repo
-``build_skill.py`` / ``build_skills.py`` / ``generate_docs_skill.py`` scripts:
-copy a skill's source tree into ``dist/<name>/``, stamp its ``SKILL.md`` with
-the source commit, and validate it with the agent-skills reference library.
+This is the build half of the release pipeline:
+
+- Copy a skill's source tree into ``dist/<name>/``
+- Stamp its ``SKILL.md`` with the source commit
+- (Optional) run a caller-supplied generator to add content to the skill.
+- Validate it with the ``skills-ref`` library.
+
+Each repo's build script calls into here.
 
 The CI workflow then packages ``dist/<name>/`` into release assets.
 """

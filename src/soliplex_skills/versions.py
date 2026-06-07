@@ -1,11 +1,9 @@
 """``list`` / ``diff`` / ``upgrade`` for a published filesystem skill.
 
-This consolidates the ~575-line ``skill_versions.py`` that is currently
-vendored verbatim into every skill (``soliplex-docs``,
-``soliplex-template``, ``soliplex-concierge-{installer,room,admin}``). Those
-copies differ only in a handful of constants and one behavioral toggle; both
-are captured here by :class:`SkillSpec`, so the vendored script collapses to a
-thin shim that builds a ``SkillSpec`` and delegates to :class:`SkillVersions`.
+Each skill bundles a thin ``skill_versions.py`` shim that builds a
+:class:`SkillSpec` -- the handful of constants and the one ``compare_scope``
+toggle that distinguish one skill from another -- and delegates to
+:class:`SkillVersions`, which implements the three subcommands here.
 """
 
 from __future__ import annotations
@@ -111,8 +109,7 @@ def _diff_trees(
 class SkillSpec:
     """Everything that distinguishes one published skill from another.
 
-    These are exactly the constants that differ between the vendored
-    ``skill_versions.py`` copies today.
+    A skill's bundled ``skill_versions.py`` shim fills these in.
 
     Attributes:
         owner: GitHub repository owner (e.g. ``"soliplex"``).
@@ -146,8 +143,8 @@ class SkillSpec:
 class SkillVersions:
     """Operations over a published skill's GitHub releases.
 
-    Wraps a :class:`SkillSpec` and offers the three subcommands the vendored
-    script exposes. ``target`` arguments accept a concrete tag or the literal
+    Wraps a :class:`SkillSpec` and offers the three subcommands the bundled
+    shim exposes. ``target`` arguments accept a concrete tag or the literal
     ``"latest"``, which is expanded via the skill's pointer manifest.
     """
 
