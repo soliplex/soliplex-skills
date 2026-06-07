@@ -298,10 +298,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-problem-one-mechanism-copied-many-times" class="md-nav__link">
+  <a href="#what-it-provides" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The problem: one mechanism, copied many times
+        What it provides
       </span>
     </span>
   </a>
@@ -320,10 +320,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#future-adoption" class="md-nav__link">
+  <a href="#how-the-skills-use-it" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Future adoption
+        How the skills use it
       </span>
     </span>
   </a>
@@ -788,10 +788,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-problem-one-mechanism-copied-many-times" class="md-nav__link">
+  <a href="#what-it-provides" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The problem: one mechanism, copied many times
+        What it provides
       </span>
     </span>
   </a>
@@ -810,10 +810,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#future-adoption" class="md-nav__link">
+  <a href="#how-the-skills-use-it" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Future adoption
+        How the skills use it
       </span>
     </span>
   </a>
@@ -869,39 +869,30 @@ across the Soliplex projects:</p>
 </tr>
 <tr>
 <td><code>soliplex-concierge</code></td>
-<td><code>soliplex-concierge-installer</code>, <code>soliplex-concierge.room</code>, <code>soliplex-concierge.admin</code></td>
+<td><code>soliplex-concierge-installer</code>, <code>soliplex-concierge-room</code>, <code>soliplex-concierge-admin</code></td>
 </tr>
 </tbody>
 </table>
 <div class="admonition note">
 <p class="admonition-title">Status</p>
 <p>This site documents the <strong>mechanisms</strong> these projects use and the
-<strong>library API</strong> that absorbs them. The library is implemented and tested
-(100% coverage); the sibling repos have not yet been migrated to consume
-it — see <a href="#future-adoption">future adoption</a>.</p>
+<strong>library API</strong> that provides them. The library is implemented and tested
+(100% branch coverage).</p>
 </div>
-<h2 id="the-problem-one-mechanism-copied-many-times">The problem: one mechanism, copied many times<a class="headerlink" href="#the-problem-one-mechanism-copied-many-times" title="Permanent link">&para;</a></h2>
-<p>The release/upgrade machinery works well, but it lives as <strong>duplicated source</strong>
-in every project:</p>
+<h2 id="what-it-provides">What it provides<a class="headerlink" href="#what-it-provides" title="Permanent link">&para;</a></h2>
+<p>One importable, tested Python package holding the release/upgrade machinery a
+versioned filesystem skill needs:</p>
 <ul>
-<li><strong><code>skill_versions.py</code></strong> — a ~575-line, standard-library-only script is
-  <em>vendored verbatim</em> into every skill's <code>scripts/</code> directory (five-plus
-  near-identical copies). Only a handful of constants differ
-  (<code>OWNER</code>/<code>REPO</code>/<code>ASSET_TARBALL</code>/<code>POINTER_TAG</code> and a rolling-tag regex).
-  <code>soliplex-concierge</code> already marks these copies for coverage-omit with a
-  note that the logic is <em>"slated to move to the shared <code>soliplex-skills</code>
-  library."</em></li>
-<li><strong><code>stamp_source_commit()</code></strong> — an identical frontmatter-mutation function is
-  copied into both <code>soliplex-template/scripts/build_skill.py</code> and
-  <code>soliplex-concierge/scripts/build_skills.py</code>.</li>
-<li><strong>GitHub Actions release workflows</strong> — three <code>build-*skill*.yaml</code> workflows
-  repeat the same dual-mode publishing logic (rolling builds + a <code>…-latest</code>
-  pointer, or snapshots attached to a release tag), <code>version.json</code> manifest
-  generation, and prune-to-<code>KEEP_ROLLING</code> housekeeping.</li>
+<li><strong><code>versions</code></strong> — <code>list</code> / <code>diff</code> / <code>upgrade</code> a published skill against its
+  GitHub releases, driven by a per-skill <a href="reference/api/"><code>SkillSpec</code></a>.</li>
+<li><strong><code>build</code></strong> — assemble a skill into <code>dist/&lt;name&gt;/</code>: copy the source tree,
+  stamp <code>SKILL.md</code> with the source commit, and validate it (with an optional
+  <code>generator</code> hook for build-time content).</li>
+<li><strong><code>releases</code></strong> / <strong><code>manifest</code></strong> / <strong><code>metadata</code></strong> / <strong><code>_archive</code></strong> — GitHub
+  release access, the <code>version.json</code> schema, reading/stamping <code>SKILL.md</code>'s
+  <code>source_commit</code>, and the download/verify/extract primitives the others build
+  on.</li>
 </ul>
-<p><code>soliplex-skills</code> exists to hold that logic <strong>once</strong>, as an importable,
-testable Python package — so the vendored <code>skill_versions.py</code> collapses to a
-thin shim and the build scripts and workflows call into a shared library.</p>
 <h2 id="where-to-start">Where to start<a class="headerlink" href="#where-to-start" title="Permanent link">&para;</a></h2>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">I maintain a skill / this library</label><label for="__tabbed_1_2">I have a skill installed and want to manage it</label></div>
 <div class="tabbed-content">
@@ -910,7 +901,7 @@ thin shim and the build scripts and workflows call into a shared library.</p>
 <a href="overview/release-model/">release model</a>, then the
 <a href="mechanisms/building/">Mechanisms</a> section for how building, publishing,
 and installation map onto the library API. The
-<a href="reference/api/">API reference</a> is the consolidated surface.</p>
+<a href="reference/api/">API reference</a> is the full surface.</p>
 </div>
 <div class="tabbed-block">
 <p>Go straight to <a href="mechanisms/versions-cli/">Managing an installed skill</a>:
@@ -919,22 +910,23 @@ published one, and <strong>upgrade</strong> (or downgrade) in place.</p>
 </div>
 </div>
 </div>
-<h2 id="future-adoption">Future adoption<a class="headerlink" href="#future-adoption" title="Permanent link">&para;</a></h2>
-<p>The library is in place; migrating the sibling repos to consume it is the
-remaining work, and is deliberately out of scope for <code>soliplex-skills</code> itself:</p>
+<h2 id="how-the-skills-use-it">How the skills use it<a class="headerlink" href="#how-the-skills-use-it" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The vendored <code>skill_versions.py</code> becomes a thin shim.</strong> Rather than import
-  <code>soliplex_skills</code> (which is not installed in the environment an <em>installed</em>
-  skill runs in), each skill will ship a small
+<li><strong>Each skill bundles a thin <code>skill_versions.py</code>.</strong> Because an installed skill
+  runs in an environment where <code>soliplex_skills</code> is not installed, it is a small
   <a href="https://peps.python.org/pep-0723/">PEP 723</a> script that declares
-  <code># dependencies = ["soliplex-skills"]</code> in its inline metadata, so <code>uv</code>/<code>uvx</code>
-  provisions the library at run time. The shim fills in a
+  <code># dependencies = ["soliplex-skills&gt;=…"]</code> in its inline metadata, letting <code>uv</code>
+  provision the library at run time. It fills in a
   <a href="reference/api/"><code>SkillSpec</code></a> and delegates to <code>SkillVersions</code>.</li>
-<li><strong>The build scripts and release workflows call into the library</strong> instead of
-  re-implementing <code>stamp_source_commit</code>, manifest emission, and tag
-  classification.</li>
+<li><strong>Build scripts call <code>soliplex_skills.build</code>.</strong> <code>soliplex-template</code> and
+  <code>soliplex-concierge</code> build via <code>build.build_skill</code> (<code>discover_skills</code> plus a
+  loop for the multi-skill concierge repo); the <code>soliplex-docs</code> builder passes a
+  <code>generator</code> hook to <code>build_skill</code> for its nav-derived documentation map. All
+  reuse <code>metadata.stamp_source_commit</code> and in-process <code>skills_ref</code> validation.</li>
+<li><strong>Publishing lives in each repo's GitHub Actions workflow</strong> — dual-mode
+  releases, the <code>version.json</code> manifest, and prune-to-<code>KEEP_ROLLING</code> — and the
+  build step it runs is the part that calls this library.</li>
 </ul>
-<p>Until then, the sibling repos keep their copy-pasted scripts unchanged.</p>
 
 
 

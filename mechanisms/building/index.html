@@ -885,9 +885,9 @@
 
 <h1 id="building-a-skill">Building a skill<a class="headerlink" href="#building-a-skill" title="Permanent link">&para;</a></h1>
 <p>Before a skill can be published it is <strong>assembled, stamped, and validated</strong>
-into a distribution directory. This is the step the per-repo
-<code>build_skill.py</code> / <code>build_skills.py</code> / <code>generate_docs_skill.py</code> scripts perform
-today; the <a href="../../reference/api/"><code>build</code> module</a> consolidates it.</p>
+into a distribution directory. Each repo's build script (<code>build_skill.py</code>, or
+<code>build_skills.py</code> for the multi-skill <code>soliplex-concierge</code>) does this through
+the <a href="../../reference/api/"><code>build</code> module</a>.</p>
 <h2 id="the-pipeline">The pipeline<a class="headerlink" href="#the-pipeline" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
     S[skills/&amp;lt;name&amp;gt;/] --&gt;|copytree| D[dist/&amp;lt;name&amp;gt;/]
@@ -922,12 +922,12 @@ is the <a href="../publishing/">publishing workflow</a>'s job, not the build scr
 shared with the version-management client so the <em>write</em> and the <em>read</em> of
 <code>source_commit</code> cannot drift apart.</p>
 <div class="admonition note">
-<p class="admonition-title">What this de-duplicates</p>
-<p><code>stamp_source_commit()</code> is currently byte-for-byte identical in
-<code>soliplex-template/scripts/build_skill.py</code> and
-<code>soliplex-concierge/scripts/build_skills.py</code>, and <code>discover_skills()</code> /
-<code>build_skill()</code> are the same shape across all three repos. Centralizing
-them here removes that copy-paste.</p>
+<p class="admonition-title">One build path</p>
+<p>Every repo builds through <code>build.build_skill</code>, so stamping
+(<code>metadata.stamp_source_commit</code>) and validation behave identically across
+skills. <code>discover_skills</code> builds several at once (the <code>soliplex-concierge</code>
+case), and an optional <code>generator</code> hook injects build-time content (the
+<code>soliplex-docs</code> documentation map).</p>
 </div>
 
 

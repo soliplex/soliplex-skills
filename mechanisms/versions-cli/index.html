@@ -1075,12 +1075,11 @@ tables. The <code>rolling_prefix</code> is expanded into the rolling-tag regex, 
 </span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="n">sv</span><span class="o">.</span><span class="n">upgrade</span><span class="p">(</span><span class="n">installed_path</span><span class="p">,</span> <span class="s2">&quot;latest&quot;</span><span class="p">,</span> <span class="n">dry_run</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition note">
-<p class="admonition-title">What this de-duplicates</p>
-<p>The ~575-line <code>skill_versions.py</code> is vendored verbatim into five or more
-skills, differing only in those <code>SkillSpec</code> fields and the <code>compare_scope</code>
-toggle. Consuming this library, the vendored script collapses to a thin
-shim that fills in a <code>SkillSpec</code> and delegates to <code>SkillVersions</code> (see
-<a href="../../#future-adoption">future adoption</a>).</p>
+<p class="admonition-title">The bundled shim</p>
+<p>Each skill's <code>scripts/skill_versions.py</code> is a thin shim: it fills in a
+<code>SkillSpec</code> (the per-skill constants plus the <code>compare_scope</code> toggle) and
+delegates to <code>SkillVersions</code> — see
+<a href="../../#how-the-skills-use-it">How the skills use it</a>.</p>
 </div>
 
 
