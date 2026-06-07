@@ -76,13 +76,17 @@ repeat the constants on the command line:
 
 ```console
 soliplex-skills list --skill soliplex-docs
+soliplex-skills list --skill soliplex-docs --skill-dir path/to/installed
 soliplex-skills diff --skill soliplex-docs --skill-dir path/to/installed
 soliplex-skills diff --skill soliplex-docs v0.67 v0.68
 soliplex-skills upgrade --skill soliplex-docs --skill-dir path/to/installed --dry-run
 ```
 
 `--skill` is optional when the config defines a single skill; `--pyproject`
-overrides the default upward search for `pyproject.toml`.
+overrides the default upward search for `pyproject.toml`. `--skill-dir` is
+optional for `list` (it only adds the `installed` marker — the table and the
+`latest` marker render without it) and required for `diff`/`upgrade` unless
+`diff` is given two tags.
 
 ## CLI configuration
 
