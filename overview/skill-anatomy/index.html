@@ -19,7 +19,7 @@
         <link rel="prev" href="../release-model/">
       
       
-        <link rel="next" href="../../mechanisms/building/">
+        <link rel="next" href="../skills-catalog/">
       
       
         
@@ -277,6 +277,8 @@
       
         
       
+        
+      
     
     
     
@@ -476,6 +478,33 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills-catalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Skills catalog
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -874,6 +903,8 @@
       
         
       
+        
+      
     
     
     
@@ -915,8 +946,7 @@
 </span></code></pre></div>
 <p><code>scripts/skill_versions.py</code> is the version-management helper bundled <em>inside</em>
 the skill so it can manage its own installed copy without any external tooling.
-Today it is a standalone copy in every skill; the goal of this project is for
-it to become a thin shim over the shared library (see
+It is a thin shim over the shared <code>soliplex-skills</code> library (see
 <a href="../../mechanisms/versions-cli/">Managing an installed skill</a>).</p>
 <h2 id="skillmd-frontmatter"><code>SKILL.md</code> frontmatter<a class="headerlink" href="#skillmd-frontmatter" title="Permanent link">&para;</a></h2>
 <p><code>SKILL.md</code> opens with a YAML frontmatter block. The <code>metadata</code> table records
@@ -1013,13 +1043,13 @@ what is published.</p>
         
         
           
-          <a href="../../mechanisms/building/" class="md-footer__link md-footer__link--next" aria-label="Next: Building a skill">
+          <a href="../skills-catalog/" class="md-footer__link md-footer__link--next" aria-label="Next: Skills catalog">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Building a skill
+                Skills catalog
               </div>
             </div>
             <div class="md-footer__button md-icon">
