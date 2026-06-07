@@ -48,10 +48,11 @@ import versions` then `versions.SkillVersions(...)`). The headline types are:
 | Member | Purpose |
 | --- | --- |
 | `SkillSpec(owner, repo, skill_name, asset_tarball, pointer_tag, rolling_re, compare_scope="tree", pointer_manifest="latest.json")` | per-skill configuration |
-| `SkillVersions(spec).list(*, kind=None)` | published versions, newest first |
+| `SkillVersions(spec).list(*, kind=None, installed_path=None, mark_latest=False)` | published versions, newest first; flags the installed / latest rows |
 | `SkillVersions(spec).diff(installed_path, target="latest", *, name_only=False)` | installed vs. published |
 | `SkillVersions(spec).diff_published(left, right, *, name_only=False)` | two published versions vs. each other |
 | `SkillVersions(spec).upgrade(installed_path, target="latest", *, force=False, dry_run=False)` | install a version in place |
+| `format_list_table(rows)` | render `list` rows as the aligned, marked table |
 | `CompareScope` | `"tree"` (whole skill) or `"references"` (docs only) |
 
 ## `build` — assemble / stamp / validate

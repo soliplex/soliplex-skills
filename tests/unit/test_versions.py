@@ -125,6 +125,82 @@ def test_list_kind_filter(monkeypatch):
     assert [item["tag"] for item in result] == ["docs-2026.05.29-bbbbbbb"]
 
 
+def test_list_marks_installed_and_latest(
+    monkeypatch, tmp_path, make_skill, make_tarball
+):
+    raw = [
+        _release("docs-2026.05.29-bbbbbbb", date="2026-05-29"),
+        _release("docs-2026.05.18-aaaaaaa", date="2026-05-18"),
+    ]
+    monkeypatch.setattr(releases, "list_releases", lambda owner, repo: raw)
+    installed = make_skill(
+        "soliplex-docs", commit="aaaaaaa", parent=tmp_path / "installed"
+    )
+    mapping, _ = _publish(
+        make_skill,
+        make_tarball,
+        tmp_path,
+        commit="bbbbbbb",
+        files={"references/a.md": "x\n"},
+    )
+    monkeypatch.setattr(releases, "fetch", _serve(mapping))
+
+    result = versions.SkillVersions(_spec()).list(
+        installed_path=installed, mark_latest=True
+    )
+
+    by_tag = {row["tag"]: row for row in result}
+    assert by_tag["docs-2026.05.18-aaaaaaa"]["installed"] is True
+    assert by_tag["docs-2026.05.18-aaaaaaa"]["latest"] is False
+    assert by_tag["docs-2026.05.29-bbbbbbb"]["latest"] is True
+    assert by_tag["docs-2026.05.29-bbbbbbb"]["installed"] is False
+
+
+def test_list_mark_latest_pointer_unavailable(monkeypatch):
+    raw = [_release("docs-2026.05.18-aaaaaaa", date="2026-05-18")]
+    monkeypatch.setattr(releases, "list_releases", lambda owner, repo: raw)
+    monkeypatch.setattr(releases, "fetch", _serve({}))
+
+    result = versions.SkillVersions(_spec()).list(mark_latest=True)
+
+    assert result[0]["latest"] is False
+    assert result[0]["installed"] is False
+
+
+def test_format_list_table_renders_header_and_marks():
+    rows = [
+        {
+            "tag": "docs-2026.05.29-bbbbbbb",
+            "date": "2026-05-29",
+            "kind": "rolling",
+            "commit": "bbbbbbb",
+            "installed": True,
+            "latest": True,
+        },
+        {
+            "tag": "v0.68",
+            "date": "2026-05-20",
+            "kind": "release",
+            "commit": "a1b2c3d",
+            "installed": False,
+            "latest": False,
+        },
+    ]
+
+    table = versions.format_list_table(rows)
+
+    lines = table.splitlines()
+    assert lines[0].startswith("TAG")
+    assert lines[1].endswith("← installed, latest")
+    assert lines[2].endswith("a1b2c3d")
+
+
+def test_format_list_table_empty():
+    table = versions.format_list_table([])
+
+    assert table == "No published versions found."
+
+
 def test_diff_tree_reports_changes(
     monkeypatch, tmp_path, make_skill, make_tarball, capsys
 ):

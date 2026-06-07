@@ -80,11 +80,13 @@ def test_list_renders_table(tmp_path, monkeypatch, capsys):
         }
     ]
     monkeypatch.setattr(releases, "list_releases", lambda owner, repo: raw)
+    monkeypatch.setattr(releases, "fetch", _serve({}))  # no 'latest' pointer
 
     rc = cli.main(["list", "--pyproject", str(pp)])
 
     out = capsys.readouterr().out
     assert rc == 0
+    assert out.splitlines()[0].startswith("TAG")  # header row
     assert "docs-2026.05.29-bbbbbbb" in out
     assert "rolling" in out
 
@@ -92,11 +94,54 @@ def test_list_renders_table(tmp_path, monkeypatch, capsys):
 def test_list_json(tmp_path, monkeypatch, capsys):
     pp = _write_pyproject(tmp_path, _DOCS)
     monkeypatch.setattr(releases, "list_releases", lambda owner, repo: [])
+    monkeypatch.setattr(releases, "fetch", _serve({}))  # no 'latest' pointer
 
     rc = cli.main(["list", "--pyproject", str(pp), "--json"])
 
     assert rc == 0
     assert json.loads(capsys.readouterr().out) == []
+
+
+def test_list_marks_installed_and_latest_rows(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    pp = _write_pyproject(tmp_path, _DOCS)
+    raw = [
+        {
+            "tag_name": "docs-2026.05.29-bbbbbbb",
+            "published_at": "2026-05-29T00:00:00Z",
+            "assets": [{"name": "soliplex-docs-skill.tar.gz"}],
+            "target_commitish": "main",
+            "prerelease": True,
+        },
+        {
+            "tag_name": "docs-2026.05.18-aaaaaaa",
+            "published_at": "2026-05-18T00:00:00Z",
+            "assets": [{"name": "soliplex-docs-skill.tar.gz"}],
+            "target_commitish": "main",
+            "prerelease": True,
+        },
+    ]
+    monkeypatch.setattr(releases, "list_releases", lambda owner, repo: raw)
+    installed = make_skill(
+        "soliplex-docs", commit="aaaaaaa", parent=tmp_path / "installed"
+    )
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        _serve(_publish(make_skill, make_tarball, tmp_path, commit="bbbbbbb")),
+    )
+
+    rc = cli.main(
+        ["list", "--pyproject", str(pp), "--skill-dir", str(installed)]
+    )
+
+    lines = capsys.readouterr().out.splitlines()
+    assert rc == 0
+    installed_line = next(ln for ln in lines if "aaaaaaa" in ln)
+    latest_line = next(ln for ln in lines if "bbbbbbb" in ln)
+    assert installed_line.endswith("← installed")
+    assert latest_line.endswith("← latest")
 
 
 def test_diff_returns_one_and_prints_diff_on_changes(
@@ -321,6 +366,7 @@ def test_list_selects_named_skill_and_reports_empty(
 ):
     pp = _write_pyproject(tmp_path, _DOCS, _TEMPLATE)
     monkeypatch.setattr(releases, "list_releases", lambda owner, repo: [])
+    monkeypatch.setattr(releases, "fetch", _serve({}))  # no 'latest' pointer
 
     rc = cli.main(["list", "--pyproject", str(pp), "--skill", "soliplex-docs"])
 

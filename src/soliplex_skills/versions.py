@@ -200,14 +200,34 @@ class SkillVersions:
     # -- public API ---------------------------------------------------------
 
     def list(
-        self, *, kind: Literal["rolling", "release"] | None = None
+        self,
+        *,
+        kind: Literal["rolling", "release"] | None = None,
+        installed_path: Path | None = None,
+        mark_latest: bool = False,
     ) -> list[dict]:
         """Return skill-bearing releases, newest first (minus the pointer).
 
-        Each entry carries ``tag``, ``date``, ``kind``, ``commit`` and
-        ``prerelease``. *kind* optionally filters to rolling builds or tagged
-        releases.
+        Each entry carries ``tag``, ``date``, ``kind``, ``commit``,
+        ``prerelease`` and the ``installed`` / ``latest`` flags. *kind*
+        optionally filters to rolling builds or tagged releases. When
+        *installed_path* is given, the row whose commit matches that skill's
+        recorded ``source_commit`` is flagged ``installed``; when *mark_latest*
+        is set, the row the ``…-latest`` pointer resolves to is flagged
+        ``latest`` (silently left unflagged if the pointer is unavailable).
         """
+        installed_commit = (
+            metadata.read_source_commit(installed_path / "SKILL.md")
+            if installed_path is not None
+            else None
+        )
+        latest_tag: str | None = None
+        if mark_latest:
+            try:
+                latest_tag = self._resolve_target("latest")[0]
+            except PointerUnavailable:
+                latest_tag = None
+
         out: list[dict] = []
         for release in releases.list_releases(self.spec.owner, self.spec.repo):
             tag = release.get("tag_name")
@@ -225,6 +245,9 @@ class SkillVersions:
                     "kind": release_kind,
                     "commit": commit,
                     "prerelease": release.get("prerelease", False),
+                    "installed": installed_commit is not None
+                    and commit == installed_commit,
+                    "latest": latest_tag is not None and tag == latest_tag,
                 }
             )
         out.sort(key=lambda item: item["date"], reverse=True)
@@ -328,3 +351,32 @@ class SkillVersions:
 
         print(f"Upgraded {self.spec.skill_name} to {summary}.")
         return 0
+
+
+def format_list_table(rows: list[dict]) -> str:
+    """Render :meth:`SkillVersions.list` *rows* as an aligned table.
+
+    Produces a ``TAG  DATE  KIND  COMMIT`` header and one row per version,
+    appending ``← installed, latest`` for rows carrying the ``installed`` /
+    ``latest`` flags. The tag column is sized to the widest tag. Returns the
+    'no versions' message when *rows* is empty. The library CLI and the
+    per-skill shim both render through this, so their output stays identical.
+    """
+    if not rows:
+        return "No published versions found."
+    tag_width = max(len("TAG"), *(len(row["tag"]) for row in rows))
+    lines = [f"{'TAG':<{tag_width}}  {'DATE':<10}  {'KIND':<7}  COMMIT"]
+    for row in rows:
+        marks = []
+        if row.get("installed"):
+            marks.append("installed")
+        if row.get("latest"):
+            marks.append("latest")
+        suffix = f"  ← {', '.join(marks)}" if marks else ""
+        lines.append(
+            f"{row['tag']:<{tag_width}}  "
+            f"{row['date']:<10}  "
+            f"{row['kind']:<7}  "
+            f"{row['commit']}{suffix}"
+        )
+    return "\n".join(lines)
