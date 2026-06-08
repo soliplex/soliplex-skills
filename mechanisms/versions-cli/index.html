@@ -1120,13 +1120,11 @@ tagged releases — marking your installed copy and the current <code>latest</co
 installed copy (handy for reviewing what changed between builds):</p>
 <div class="language-console highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">python scripts/skill_versions.py diff v0.67 v0.68</span>
 </span></code></pre></div>
-<p>What gets compared depends on the skill's <strong>compare scope</strong>:</p>
-<ul>
-<li><code>references</code> — only the <code>references/</code> Markdown (used by <code>soliplex-docs</code>,
-  whose payload is documentation);</li>
-<li><code>tree</code> — the whole skill tree: <code>SKILL.md</code>, <code>scripts/</code>, <code>assets/</code>,
-  <code>references/</code> (used by <code>soliplex-template</code> and the concierge skills).</li>
-</ul>
+<p>The <strong>whole skill tree</strong> is compared — <code>SKILL.md</code>, <code>scripts/</code>, <code>assets/</code>, and
+<code>references/</code>. The one per-build-volatile value, the <code>metadata.source_commit</code>
+stamp in <code>SKILL.md</code>, is normalized out, so two builds of identical content
+compare equal; every other line (including the build-time
+<code>## Documentation map</code> a docs skill appends) shows up as a meaningful change.</p>
 <h2 id="upgrade-install-a-published-version"><code>upgrade</code> — install a published version<a class="headerlink" href="#upgrade-install-a-published-version" title="Permanent link">&para;</a></h2>
 <p>Downloads a version (default <code>latest</code>) and installs it <strong>in place</strong>.</p>
 <div class="language-console highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">python scripts/skill_versions.py upgrade            # to latest</span>
@@ -1159,8 +1157,7 @@ optional for <code>list</code> (it only adds the <code>installed</code> marker �
 <code>diff</code> is given two tags.</p>
 <h2 id="cli-configuration">CLI configuration<a class="headerlink" href="#cli-configuration" title="Permanent link">&para;</a></h2>
 <p>Each skill records its <a href="../../reference/api/"><code>SkillSpec</code></a> once, as an array of
-tables. The <code>rolling_prefix</code> is expanded into the rolling-tag regex, and
-<code>compare_scope</code> defaults to <code>"tree"</code>:</p>
+tables. The <code>rolling_prefix</code> is expanded into the rolling-tag regex:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[[tool.soliplex-skills.skill]]</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;soliplex-docs&quot;</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">owner</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;soliplex&quot;</span>
@@ -1168,7 +1165,6 @@ tables. The <code>rolling_prefix</code> is expanded into the rolling-tag regex, 
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">asset_tarball</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;soliplex-docs-skill.tar.gz&quot;</span>
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">pointer_tag</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;docs-latest&quot;</span>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">rolling_prefix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;docs&quot;</span><span class="w">          </span><span class="c1"># -&gt; ^docs-\d{4}\.\d{2}\.\d{2}-[0-9a-f]+$</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">compare_scope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;references&quot;</span><span class="w">     </span><span class="c1"># optional, default &quot;tree&quot;</span>
 </span></code></pre></div>
 <h2 id="library-api">Library API<a class="headerlink" href="#library-api" title="Permanent link">&para;</a></h2>
 <p>The three subcommands are methods on <strong><code>SkillVersions</code></strong>, configured by a
@@ -1183,20 +1179,18 @@ tables. The <code>rolling_prefix</code> is expanded into the rolling-tag regex, 
 </span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">asset_tarball</span><span class="o">=</span><span class="s2">&quot;soliplex-docs-skill.tar.gz&quot;</span><span class="p">,</span>
 </span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">pointer_tag</span><span class="o">=</span><span class="s2">&quot;docs-latest&quot;</span><span class="p">,</span>
 </span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">rolling_re</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^docs-\d</span><span class="si">{4}</span><span class="s2">\.\d</span><span class="si">{2}</span><span class="s2">\.\d</span><span class="si">{2}</span><span class="s2">-[0-9a-f]+$&quot;</span><span class="p">),</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    <span class="n">compare_scope</span><span class="o">=</span><span class="s2">&quot;references&quot;</span><span class="p">,</span>   <span class="c1"># docs compares references/ only</span>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="p">)</span>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>
-</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="n">sv</span> <span class="o">=</span> <span class="n">versions</span><span class="o">.</span><span class="n">SkillVersions</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="n">sv</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>                          <span class="c1"># -&gt; [{tag, date, kind, commit, prerelease}, …]</span>
-</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="n">sv</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">installed_path</span><span class="p">,</span> <span class="s2">&quot;latest&quot;</span><span class="p">)</span>
-</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="n">sv</span><span class="o">.</span><span class="n">upgrade</span><span class="p">(</span><span class="n">installed_path</span><span class="p">,</span> <span class="s2">&quot;latest&quot;</span><span class="p">,</span> <span class="n">dry_run</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="p">)</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="n">sv</span> <span class="o">=</span> <span class="n">versions</span><span class="o">.</span><span class="n">SkillVersions</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="n">sv</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>                          <span class="c1"># -&gt; [{tag, date, kind, commit, prerelease}, …]</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="n">sv</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">installed_path</span><span class="p">,</span> <span class="s2">&quot;latest&quot;</span><span class="p">)</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="n">sv</span><span class="o">.</span><span class="n">upgrade</span><span class="p">(</span><span class="n">installed_path</span><span class="p">,</span> <span class="s2">&quot;latest&quot;</span><span class="p">,</span> <span class="n">dry_run</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">The bundled shim</p>
 <p>Each skill's <code>scripts/skill_versions.py</code> is a thin shim: it fills in a
-<code>SkillSpec</code> (the per-skill constants plus the <code>compare_scope</code> toggle) and
-delegates to <code>SkillVersions</code> — see
-<a href="../../#how-the-skills-use-it">How the skills use it</a>.</p>
+<code>SkillSpec</code> (the per-skill constants) and delegates to <code>SkillVersions</code> —
+see <a href="../../#how-the-skills-use-it">How the skills use it</a>.</p>
 </div>
 
 
