@@ -12,7 +12,6 @@ skill::
     asset_tarball = "soliplex-docs-skill.tar.gz"
     pointer_tag = "docs-latest"
     rolling_prefix = "docs"          # -> the rolling-tag regex
-    compare_scope = "references"     # optional, default "tree"
 
 Parsed with the standard-library :mod:`tomllib` -- no third-party dependency.
 """
@@ -105,7 +104,6 @@ def _spec_from_entry(entry: dict) -> SkillSpec:
         asset_tarball=entry["asset_tarball"],
         pointer_tag=entry["pointer_tag"],
         rolling_re=_rolling_re(entry["rolling_prefix"]),
-        compare_scope=entry.get("compare_scope", "tree"),
         pointer_manifest=entry.get("pointer_manifest", "latest.json"),
     )
 

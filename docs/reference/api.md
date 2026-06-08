@@ -47,13 +47,17 @@ import versions` then `versions.SkillVersions(...)`). The headline types are:
 
 | Member | Purpose |
 | --- | --- |
-| `SkillSpec(owner, repo, skill_name, asset_tarball, pointer_tag, rolling_re, compare_scope="tree", pointer_manifest="latest.json")` | per-skill configuration |
+| `SkillSpec(owner, repo, skill_name, asset_tarball, pointer_tag, rolling_re, pointer_manifest="latest.json")` | per-skill configuration |
 | `SkillVersions(spec).list(*, kind=None, installed_path=None, mark_latest=False)` | published versions, newest first; flags the installed / latest rows |
-| `SkillVersions(spec).diff(installed_path, target="latest", *, name_only=False)` | installed vs. published |
+| `SkillVersions(spec).diff(installed_path, target="latest", *, name_only=False)` | installed vs. published (whole tree; the `source_commit` stamp is ignored) |
 | `SkillVersions(spec).diff_published(left, right, *, name_only=False)` | two published versions vs. each other |
 | `SkillVersions(spec).upgrade(installed_path, target="latest", *, force=False, dry_run=False)` | install a version in place |
 | `format_list_table(rows)` | render `list` rows as the aligned, marked table |
-| `CompareScope` | `"tree"` (whole skill) or `"references"` (docs only) |
+
+!!! note "Deprecated"
+    `SkillSpec` still accepts a `compare_scope=` argument for backward
+    compatibility, but it is ignored (and warns): `diff` always compares the
+    whole skill tree, normalizing out the per-build `source_commit` stamp.
 
 ## `build` — assemble / stamp / validate
 

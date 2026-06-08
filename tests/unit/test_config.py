@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import fields
+
 import pytest
 
 from soliplex_skills import config
@@ -13,7 +15,6 @@ _DOCS = {
     "asset_tarball": "soliplex-docs-skill.tar.gz",
     "pointer_tag": "docs-latest",
     "rolling_prefix": "docs",
-    "compare_scope": "references",
 }
 _TEMPLATE = {
     "name": "soliplex-template",
@@ -43,7 +44,6 @@ def test_load_single_skill(tmp_path):
 
     spec = specs["soliplex-docs"]
     assert set(specs) == {"soliplex-docs"}
-    assert spec.compare_scope == "references"
     assert spec.rolling_re.match("docs-2026.05.29-cc9a290")
     assert not spec.rolling_re.match("template-skill-2026.05.29-cc9a290")
 
@@ -56,12 +56,15 @@ def test_load_multiple_skills(tmp_path):
     assert set(specs) == {"soliplex-docs", "soliplex-template"}
 
 
-def test_compare_scope_defaults_to_tree(tmp_path):
-    path = _write_pyproject(tmp_path, _TEMPLATE)
+def test_legacy_compare_scope_key_is_ignored(tmp_path):
+    path = _write_pyproject(
+        tmp_path, {**_TEMPLATE, "compare_scope": "references"}
+    )
 
     specs = config.load_skill_specs(path)
 
-    assert specs["soliplex-template"].compare_scope == "tree"
+    spec = specs["soliplex-template"]
+    assert "compare_scope" not in {field.name for field in fields(spec)}
 
 
 def test_missing_required_key_raises(tmp_path):
