@@ -1,9 +1,12 @@
 """Release manifest schema shared by the publishing workflow and clients.
 
 Every published skill build carries a small JSON manifest describing the
-artifact. For a software/tagged release it is attached as ``version.json``;
-for a rolling build it is also published as ``latest.json`` under the
-``…-latest`` pointer tag so a single request resolves "what is newest?".
+artifact. For a software/tagged release it is attached as ``version.json``
+when the release holds a single skill, or under a skill-unique name (e.g.
+``<prefix>-version.json``) when several skills share one release tag and a
+bare ``version.json`` would collide across them. For a rolling build it is
+also published as ``latest.json`` under the ``…-latest`` pointer tag so a
+single request resolves "what is newest?".
 
 The two files have an identical shape -- this module is its one definition.
 It mirrors the per-repo workflows' ``jq -n '{tag, source_commit, generated,
