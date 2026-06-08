@@ -39,6 +39,9 @@ nav = [
         "mechanisms/versions-cli.md",
         "mechanisms/installation.md",
     ] },
+    { "Adopt in a new repo" = [
+        "adoption/quickstart.md",
+    ] },
     { "API reference" = [
         "reference/api.md",
     ] },

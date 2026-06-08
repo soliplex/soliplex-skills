@@ -51,6 +51,12 @@ versioned filesystem skill needs:
     how to **list** published versions, **diff** your installed copy against a
     published one, and **upgrade** (or downgrade) in place.
 
+=== "I want to publish a skill from my own repo"
+
+    Follow [Adopt in a new repo](adoption/quickstart.md): a step-by-step setup
+    with copy-paste-ready `skill_versions.py`, `build_skill.py`, and GitHub
+    Actions workflow examples.
+
 ## How the skills use it
 
 - **Each skill bundles a thin `skill_versions.py`.** Because an installed skill
