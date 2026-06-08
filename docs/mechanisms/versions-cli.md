@@ -43,12 +43,11 @@ installed copy (handy for reviewing what changed between builds):
 python scripts/skill_versions.py diff v0.67 v0.68
 ```
 
-What gets compared depends on the skill's **compare scope**:
-
-- `references` — only the `references/` Markdown (used by `soliplex-docs`,
-  whose payload is documentation);
-- `tree` — the whole skill tree: `SKILL.md`, `scripts/`, `assets/`,
-  `references/` (used by `soliplex-template` and the concierge skills).
+The **whole skill tree** is compared — `SKILL.md`, `scripts/`, `assets/`, and
+`references/`. The one per-build-volatile value, the `metadata.source_commit`
+stamp in `SKILL.md`, is normalized out, so two builds of identical content
+compare equal; every other line (including the build-time
+`## Documentation map` a docs skill appends) shows up as a meaningful change.
 
 ## `upgrade` — install a published version
 
@@ -91,8 +90,7 @@ optional for `list` (it only adds the `installed` marker — the table and the
 ## CLI configuration
 
 Each skill records its [`SkillSpec`](../reference/api.md) once, as an array of
-tables. The `rolling_prefix` is expanded into the rolling-tag regex, and
-`compare_scope` defaults to `"tree"`:
+tables. The `rolling_prefix` is expanded into the rolling-tag regex:
 
 ```toml
 [[tool.soliplex-skills.skill]]
@@ -102,7 +100,6 @@ repo = "soliplex"
 asset_tarball = "soliplex-docs-skill.tar.gz"
 pointer_tag = "docs-latest"
 rolling_prefix = "docs"          # -> ^docs-\d{4}\.\d{2}\.\d{2}-[0-9a-f]+$
-compare_scope = "references"     # optional, default "tree"
 ```
 
 ## Library API
@@ -121,7 +118,6 @@ spec = versions.SkillSpec(
     asset_tarball="soliplex-docs-skill.tar.gz",
     pointer_tag="docs-latest",
     rolling_re=re.compile(r"^docs-\d{4}\.\d{2}\.\d{2}-[0-9a-f]+$"),
-    compare_scope="references",   # docs compares references/ only
 )
 
 sv = versions.SkillVersions(spec)
@@ -132,6 +128,5 @@ sv.upgrade(installed_path, "latest", dry_run=True)
 
 !!! note "The bundled shim"
     Each skill's `scripts/skill_versions.py` is a thin shim: it fills in a
-    `SkillSpec` (the per-skill constants plus the `compare_scope` toggle) and
-    delegates to `SkillVersions` — see
-    [How the skills use it](../index.md#how-the-skills-use-it).
+    `SkillSpec` (the per-skill constants) and delegates to `SkillVersions` —
+    see [How the skills use it](../index.md#how-the-skills-use-it).

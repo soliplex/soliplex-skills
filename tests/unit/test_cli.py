@@ -18,7 +18,6 @@ _DOCS = {
     "asset_tarball": "soliplex-docs-skill.tar.gz",
     "pointer_tag": "docs-latest",
     "rolling_prefix": "docs",
-    "compare_scope": "references",
 }
 _TEMPLATE = {**_DOCS, "name": "soliplex-template", "rolling_prefix": "tmpl"}
 
@@ -166,7 +165,7 @@ def test_diff_returns_one_and_prints_diff_on_changes(
 
     out = capsys.readouterr().out
     assert rc == 1  # differences were found
-    assert "~ changed: a.md" in out  # per-file summary
+    assert "~ changed: references/a.md" in out  # per-file summary
     assert "-old" in out  # the unified diff itself
     assert "+hi" in out
 
@@ -213,7 +212,7 @@ def test_diff_two_tags_returns_one_and_prints_diff(
 
     out = capsys.readouterr().out
     assert rc == 1  # differences were found
-    assert "~ changed: a.md" in out  # per-file summary
+    assert "~ changed: references/a.md" in out  # per-file summary
     assert "-old" in out  # the unified diff itself
     assert "+new" in out
 

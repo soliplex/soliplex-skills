@@ -33,9 +33,9 @@ published versions against each other.
 
 With a single TARGET (default 'latest'), the skill at --skill-dir is
 compared to that published version. Given two tags (TARGET OTHER),
-those two published versions are compared to each other instead. What
-is compared depends on the skill's compare_scope: the whole skill tree,
-or only the references/ Markdown.
+those two published versions are compared to each other instead. The
+whole skill tree is compared; the per-build source_commit stamp in
+SKILL.md is ignored.
 
 The diff is written to stdout: a per-file summary ('- removed',
 '+ added', '~ changed'), followed by a unified diff of each changed

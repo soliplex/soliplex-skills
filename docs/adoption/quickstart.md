@@ -101,8 +101,7 @@ from soliplex_skills import versions
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 
 # The only values that distinguish this skill from any other; everything else
-# is handled by the library. ``compare_scope="tree"`` compares the whole skill
-# tree (use "references" if the skill's payload is documentation only).
+# is handled by the library.
 SPEC = versions.SkillSpec(
     owner="my-org",
     repo="my-repo",
@@ -110,7 +109,6 @@ SPEC = versions.SkillSpec(
     asset_tarball="my-skill.tar.gz",
     pointer_tag="my-skill-latest",
     rolling_re=re.compile(r"^my-skill-\d{4}\.\d{2}\.\d{2}-[0-9a-f]+$"),
-    compare_scope="tree",
 )
 
 
@@ -219,8 +217,8 @@ if __name__ == "__main__":  # pragma: NO COVER
     sys.exit(main())
 ```
 
-The `rolling_re` and `compare_scope` here must match the `rolling_prefix` and
-`compare_scope` you record in `pyproject.toml` ([Step 4](#step-4-pyprojecttoml)).
+The `rolling_re` here must match the `rolling_prefix` you record in
+`pyproject.toml` ([Step 4](#step-4-pyprojecttoml)).
 
 ## Step 2 — the build script
 
@@ -535,12 +533,10 @@ repo = "my-repo"
 asset_tarball = "my-skill.tar.gz"
 pointer_tag = "my-skill-latest"
 rolling_prefix = "my-skill"      # -> ^my-skill-\d{4}\.\d{2}\.\d{2}-[0-9a-f]+$
-compare_scope = "tree"           # optional, default "tree"
 ```
 
-The `rolling_prefix` and `compare_scope` here mirror the shim's `rolling_re`
-and `compare_scope` from [Step 1](#step-1-the-in-skill-shim) — keep them in
-sync.
+The `rolling_prefix` here mirrors the shim's `rolling_re` from
+[Step 1](#step-1-the-in-skill-shim) — keep them in sync.
 
 If you gate on test coverage, exempt the bundled shim (it is exercised by the
 library's own suite):

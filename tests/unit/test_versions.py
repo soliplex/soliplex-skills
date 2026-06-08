@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import fields
 
 import pytest
 
@@ -15,7 +16,7 @@ from soliplex_skills import versions
 _ROLLING_RE = re.compile(r"^docs-\d{4}\.\d{2}\.\d{2}-[0-9a-f]+$")
 
 
-def _spec(compare_scope="tree"):
+def _spec():
     return versions.SkillSpec(
         owner="soliplex",
         repo="soliplex",
@@ -23,7 +24,14 @@ def _spec(compare_scope="tree"):
         asset_tarball="soliplex-docs-skill.tar.gz",
         pointer_tag="docs-latest",
         rolling_re=_ROLLING_RE,
-        compare_scope=compare_scope,
+    )
+
+
+def _skill_md(commit, body):
+    """Render a SKILL.md with a stamped ``source_commit`` and a custom body."""
+    return (
+        f"---\nname: soliplex-docs\nmetadata:\n"
+        f'  source_commit: "{commit}"\n---\n\n{body}'
     )
 
 
@@ -87,8 +95,21 @@ def test_skill_spec_optional_defaults():
         rolling_re=_ROLLING_RE,
     )
 
-    assert spec.compare_scope == "tree"
     assert spec.pointer_manifest == "latest.json"
+    assert "compare_scope" not in {field.name for field in fields(spec)}
+
+
+def test_skill_spec_compare_scope_is_deprecated():
+    with pytest.warns(DeprecationWarning, match="compare_scope is deprecated"):
+        versions.SkillSpec(
+            owner="soliplex",
+            repo="soliplex",
+            skill_name="soliplex-docs",
+            asset_tarball="soliplex-docs-skill.tar.gz",
+            pointer_tag="docs-latest",
+            rolling_re=_ROLLING_RE,
+            compare_scope="references",
+        )
 
 
 def test_list_excludes_pointer_and_assetless_sorts_newest_first(monkeypatch):
@@ -272,7 +293,7 @@ def test_diff_explicit_tag(monkeypatch, tmp_path, make_skill, make_tarball):
     )
     monkeypatch.setattr(releases, "fetch", _serve(mapping))
 
-    rc = versions.SkillVersions(_spec("references")).diff(
+    rc = versions.SkillVersions(_spec()).diff(
         installed, "docs-2026.05.29-bbbbbbb"
     )
 
@@ -302,26 +323,6 @@ def test_diff_tree_scope_ignores_pycache(
     assert rc == 0
 
 
-def test_diff_references_scope_missing_installed_refs(
-    monkeypatch, tmp_path, make_skill, make_tarball
-):
-    installed = make_skill(
-        "soliplex-docs", commit="aaaaaaa", parent=tmp_path / "installed"
-    )
-    mapping, _ = _publish(
-        make_skill,
-        make_tarball,
-        tmp_path,
-        commit="bbbbbbb",
-        files={"references/a.md": "new\n"},
-    )
-    monkeypatch.setattr(releases, "fetch", _serve(mapping))
-
-    rc = versions.SkillVersions(_spec("references")).diff(installed, "latest")
-
-    assert rc == 1
-
-
 def test_diff_identical_returns_zero(
     monkeypatch, tmp_path, make_skill, make_tarball, capsys
 ):
@@ -343,13 +344,36 @@ def test_diff_identical_returns_zero(
     assert "No differences." in capsys.readouterr().out
 
 
-def test_diff_references_scope_ignores_non_references(
-    monkeypatch, tmp_path, make_skill, make_tarball
+def test_diff_ignores_source_commit_stamp(
+    monkeypatch, tmp_path, make_skill, make_tarball, capsys
 ):
+    files = {"references/a.md": "same\n"}
     installed = make_skill(
         "soliplex-docs",
         commit="aaaaaaa",
-        files={"references/a.md": "same\n", "scripts/tool.py": "v1\n"},
+        files=files,
+        parent=tmp_path / "installed",
+    )
+    mapping, _ = _publish(
+        make_skill, make_tarball, tmp_path, commit="bbbbbbb", files=files
+    )
+    monkeypatch.setattr(releases, "fetch", _serve(mapping))
+
+    rc = versions.SkillVersions(_spec()).diff(installed, "latest")
+
+    assert rc == 0
+    assert "No differences." in capsys.readouterr().out
+
+
+def test_diff_reports_skill_md_body_change(
+    monkeypatch, tmp_path, make_skill, make_tarball, capsys
+):
+    old_md = _skill_md("aaaaaaa", "# Documentation map\n- old.md\n")
+    new_md = _skill_md("bbbbbbb", "# Documentation map\n- new.md\n")
+    installed = make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files={"SKILL.md": old_md},
         parent=tmp_path / "installed",
     )
     mapping, _ = _publish(
@@ -357,13 +381,15 @@ def test_diff_references_scope_ignores_non_references(
         make_tarball,
         tmp_path,
         commit="bbbbbbb",
-        files={"references/a.md": "same\n", "scripts/tool.py": "v2\n"},
+        files={"SKILL.md": new_md},
     )
     monkeypatch.setattr(releases, "fetch", _serve(mapping))
 
-    rc = versions.SkillVersions(_spec("references")).diff(installed, "latest")
+    rc = versions.SkillVersions(_spec()).diff(installed, "latest")
 
-    assert rc == 0
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "~ changed: SKILL.md" in out
 
 
 def _publish_tag(make_skill, make_tarball, tmp_path, *, tag, commit, files):
@@ -398,13 +424,13 @@ def test_diff_published_reports_changes(
     }
     monkeypatch.setattr(releases, "fetch", _serve(mapping))
 
-    rc = versions.SkillVersions(_spec("references")).diff_published(
+    rc = versions.SkillVersions(_spec()).diff_published(
         "docs-2026.05.20-aaaaaaa", "docs-2026.05.29-bbbbbbb"
     )
 
     out = capsys.readouterr().out
     assert rc == 1
-    assert "~ changed: a.md" in out
+    assert "~ changed: references/a.md" in out
 
 
 def test_diff_published_identical_returns_zero(
@@ -431,7 +457,7 @@ def test_diff_published_identical_returns_zero(
     }
     monkeypatch.setattr(releases, "fetch", _serve(mapping))
 
-    rc = versions.SkillVersions(_spec("references")).diff_published(
+    rc = versions.SkillVersions(_spec()).diff_published(
         "docs-2026.05.20-aaaaaaa", "docs-2026.05.29-bbbbbbb"
     )
 

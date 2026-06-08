@@ -1,9 +1,9 @@
 """``list`` / ``diff`` / ``upgrade`` for a published filesystem skill.
 
 Each skill bundles a thin ``skill_versions.py`` shim that builds a
-:class:`SkillSpec` -- the handful of constants and the one ``compare_scope``
-toggle that distinguish one skill from another -- and delegates to
-:class:`SkillVersions`, which implements the three subcommands here.
+:class:`SkillSpec` -- the handful of constants that distinguish one skill from
+another -- and delegates to :class:`SkillVersions`, which implements the three
+subcommands here.
 """
 
 from __future__ import annotations
@@ -11,20 +11,13 @@ from __future__ import annotations
 import dataclasses
 import difflib
 import re
+import warnings
 from pathlib import Path
 from typing import Literal
 
 from soliplex_skills import _archive
 from soliplex_skills import metadata
 from soliplex_skills import releases
-
-#: How ``diff`` compares an installed skill against a published one.
-#:
-#: * ``"tree"``       -- the whole skill tree (SKILL.md, scripts/, assets/,
-#:   references/). Used by ``soliplex-template`` and the concierge skills.
-#: * ``"references"`` -- only the ``references/`` Markdown. Used by
-#:   ``soliplex-docs``, whose payload is documentation.
-CompareScope = Literal["tree", "references"]
 
 _GITHUB = "https://github.com"
 
@@ -52,15 +45,20 @@ def _tree_text(root: Path) -> dict[str, list[str]]:
     return out
 
 
-def _markdown(refs_dir: Path) -> dict[str, list[str]]:
-    """Map every ``*.md`` file under *refs_dir* to its lines."""
-    out: dict[str, list[str]] = {}
-    if not refs_dir.is_dir():
-        return out
-    for path in sorted(refs_dir.rglob("*.md")):
-        rel = str(path.relative_to(refs_dir)).replace("\\", "/")
-        out[rel] = path.read_text(encoding="utf-8").splitlines()
-    return out
+def _read_tree(root: Path) -> dict[str, list[str]]:
+    """Map every file under *root* to its lines, normalizing the build stamp.
+
+    The per-build ``metadata.source_commit`` line stamped into ``SKILL.md`` is
+    dropped so two builds of identical content compare equal; every other line
+    (including the build-time ``## Documentation map``) is kept.
+    """
+    files = _tree_text(root)
+    for rel, lines in files.items():
+        if rel == "SKILL.md":
+            files[rel] = [
+                line for line in lines if not metadata.COMMIT_RE.match(line)
+            ]
+    return files
 
 
 def _diff_trees(
@@ -126,8 +124,12 @@ class SkillSpec:
             own ``<skill>-vX.Y.Z`` namespace (an independently-versioned
             skill) is irrelevant to the client; both are just "release" tags
             carrying this skill's :attr:`asset_tarball`.
-        compare_scope: See :data:`CompareScope`.
         pointer_manifest: Manifest filename under the pointer tag.
+
+    .. deprecated::
+        ``compare_scope`` is accepted for backward compatibility but ignored:
+        ``diff`` always compares the whole skill tree (the per-build
+        ``source_commit`` stamp is normalized out). Passing it warns.
     """
 
     owner: str
@@ -136,8 +138,18 @@ class SkillSpec:
     asset_tarball: str
     pointer_tag: str
     rolling_re: re.Pattern[str]
-    compare_scope: CompareScope = "tree"
     pointer_manifest: str = "latest.json"
+    compare_scope: dataclasses.InitVar[str | None] = None
+
+    def __post_init__(self, compare_scope: str | None) -> None:
+        if compare_scope is not None:
+            warnings.warn(
+                "SkillSpec.compare_scope is deprecated and ignored; diff "
+                "compares the whole skill tree (the source_commit stamp is "
+                "normalized out).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
 
 class SkillVersions:
@@ -188,11 +200,6 @@ class SkillVersions:
             asset_url, dest, expected_sha256=sha256
         )
         return _archive.find_skill_root(extract_dir)
-
-    def _read_for_scope(self, skill_root: Path) -> dict[str, list[str]]:
-        if self.spec.compare_scope == "references":
-            return _markdown(skill_root / "references")
-        return _tree_text(skill_root)
 
     # -- public API ---------------------------------------------------------
 
@@ -261,15 +268,16 @@ class SkillVersions:
     ) -> int:
         """Show how the skill at *installed_path* differs from *target*.
 
-        Honors :attr:`SkillSpec.compare_scope`. Returns ``0`` when identical,
-        ``1`` when differences were reported (a process-style status code).
+        Compares the whole skill tree; the per-build ``source_commit`` stamp in
+        ``SKILL.md`` is ignored. Returns ``0`` when identical, ``1`` when
+        differences were reported (a process-style status code).
         """
         with _archive.temp_dest() as dest:
             tag, asset_url, sha256 = self._resolve_target(target)
             published_root = self._fetch_skill_root(asset_url, sha256, dest)
             return _diff_trees(
-                self._read_for_scope(installed_path),
-                self._read_for_scope(published_root),
+                _read_tree(installed_path),
+                _read_tree(published_root),
                 left_label="installed",
                 right_label=tag,
                 name_only=name_only,
@@ -286,8 +294,9 @@ class SkillVersions:
 
         Neither side need be installed: *left* and *right* are each a concrete
         tag or the literal ``"latest"`` (expanded via the pointer manifest).
-        Honors :attr:`SkillSpec.compare_scope`. Returns ``0`` when identical,
-        ``1`` when differences were reported.
+        Compares the whole skill tree; the per-build ``source_commit`` stamp in
+        ``SKILL.md`` is ignored. Returns ``0`` when identical, ``1`` when
+        differences were reported.
         """
         with (
             _archive.temp_dest() as dest_left,
@@ -300,8 +309,8 @@ class SkillVersions:
                 right_url, right_sha, dest_right
             )
             return _diff_trees(
-                self._read_for_scope(left_root),
-                self._read_for_scope(right_root),
+                _read_tree(left_root),
+                _read_tree(right_root),
                 left_label=left_tag,
                 right_label=right_tag,
                 name_only=name_only,
