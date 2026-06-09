@@ -10,8 +10,8 @@ That value is the skill's installed identity: the build step stamps it
 
 from __future__ import annotations
 
+import pathlib
 import re
-from pathlib import Path
 
 #: Matches a ``source_commit: "abc1234"`` frontmatter line (quotes optional).
 COMMIT_RE = re.compile(r'^\s*source_commit:\s*"?([0-9a-fA-F]+)"?\s*$')
@@ -20,11 +20,11 @@ COMMIT_RE = re.compile(r'^\s*source_commit:\s*"?([0-9a-fA-F]+)"?\s*$')
 class MissingFrontmatterError(ValueError):
     """A ``SKILL.md`` had no YAML frontmatter to stamp."""
 
-    def __init__(self, skill_md: Path):
+    def __init__(self, skill_md: pathlib.Path):
         super().__init__(f"{skill_md} has no YAML frontmatter to stamp")
 
 
-def read_source_commit(skill_md: Path) -> str | None:
+def read_source_commit(skill_md: pathlib.Path) -> str | None:
     """Return the 7-char ``source_commit`` recorded in *skill_md*, or ``None``.
 
     ``None`` is returned when the file is missing or carries no
@@ -40,7 +40,7 @@ def read_source_commit(skill_md: Path) -> str | None:
     return None
 
 
-def stamp_source_commit(skill_md: Path, commit: str) -> None:
+def stamp_source_commit(skill_md: pathlib.Path, commit: str) -> None:
     """Record ``metadata.source_commit: "<commit>"`` in *skill_md*.
 
     Idempotent: a SKILL.md that already carries a ``source_commit`` is left

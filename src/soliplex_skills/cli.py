@@ -17,9 +17,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import pathlib
 import sys
 from collections import abc
-from pathlib import Path
 
 from soliplex_skills import build
 from soliplex_skills import config
@@ -108,7 +108,7 @@ exit status:
 def _add_spec_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--pyproject",
-        type=Path,
+        type=pathlib.Path,
         help="pyproject.toml with [tool.soliplex-skills] (default: search "
         "upward from the cwd).",
     )
@@ -199,7 +199,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_spec_args(p_list)
     p_list.add_argument(
         "--skill-dir",
-        type=Path,
+        type=pathlib.Path,
         help="Installed skill root (the directory holding SKILL.md); its "
         "matching row is flagged 'installed'.",
     )
@@ -224,7 +224,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_spec_args(p_diff)
     p_diff.add_argument(
         "--skill-dir",
-        type=Path,
+        type=pathlib.Path,
         help="Installed skill root (the directory holding SKILL.md); "
         "required unless two published tags are given.",
     )
@@ -260,7 +260,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_up.add_argument(
         "--skill-dir",
         required=True,
-        type=Path,
+        type=pathlib.Path,
         help="Installed skill root (the directory holding SKILL.md).",
     )
     p_up.add_argument(
@@ -292,13 +292,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p_build.add_argument(
         "--src",
         required=True,
-        type=Path,
+        type=pathlib.Path,
         help="Directory containing the skill source tree(s).",
     )
     p_build.add_argument(
         "--dist",
         required=True,
-        type=Path,
+        type=pathlib.Path,
         help="Output directory; each skill lands in <dist>/<name>/.",
     )
     p_build.add_argument(

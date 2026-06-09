@@ -18,9 +18,9 @@ Parsed with the standard-library :mod:`tomllib` -- no third-party dependency.
 
 from __future__ import annotations
 
+import pathlib
 import re
 import tomllib
-from pathlib import Path
 
 from soliplex_skills.versions import SkillSpec
 
@@ -41,14 +41,14 @@ class SkillConfigError(ValueError):
 class PyprojectNotFound(SkillConfigError):
     """No ``pyproject.toml`` was found at or above the search root."""
 
-    def __init__(self, base: Path):
+    def __init__(self, base: pathlib.Path):
         super().__init__(f"no pyproject.toml found at or above {base}")
 
 
 class NoSkillEntries(SkillConfigError):
     """A ``pyproject.toml`` had no skill tables."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: pathlib.Path):
         super().__init__(
             f"no [[tool.soliplex-skills.skill]] entries in {path}"
         )
@@ -78,9 +78,9 @@ class AmbiguousSkill(SkillConfigError):
         super().__init__(f"several skills configured; pass --skill ({have})")
 
 
-def find_pyproject(start: Path | None = None) -> Path:
+def find_pyproject(start: pathlib.Path | None = None) -> pathlib.Path:
     """Return the nearest ``pyproject.toml`` at/above *start* (cwd default)."""
-    base = start or Path.cwd()
+    base = start or pathlib.Path.cwd()
     for candidate in [base, *base.parents]:
         path = candidate / "pyproject.toml"
         if path.is_file():
@@ -108,7 +108,7 @@ def _spec_from_entry(entry: dict) -> SkillSpec:
     )
 
 
-def load_skill_specs(pyproject_path: Path) -> dict[str, SkillSpec]:
+def load_skill_specs(pyproject_path: pathlib.Path) -> dict[str, SkillSpec]:
     """Return ``{skill_name: SkillSpec}`` from *pyproject_path*.
 
     Reads the ``[[tool.soliplex-skills.skill]]`` array of tables. Raises

@@ -92,13 +92,13 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import pathlib
 import sys
-from pathlib import Path
 
 from soliplex_skills import versions
 
 # The skill root is the parent of this script's ``scripts/`` directory.
-SKILL_ROOT = Path(__file__).resolve().parent.parent
+SKILL_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # The only values that distinguish this skill from any other; everything else
 # is handled by the library.
