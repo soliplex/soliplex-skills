@@ -13,11 +13,11 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import pathlib
 import shutil
 import tarfile
 import tempfile
 from collections import abc
-from pathlib import Path
 
 from soliplex_skills import releases
 
@@ -45,7 +45,7 @@ class NoSkillFound(ValueError):
         super().__init__("no SKILL.md found in the extracted archive")
 
 
-def sha256(path: Path) -> str:
+def sha256(path: pathlib.Path) -> str:
     """Return the hex sha256 digest of the file at *path*."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -55,15 +55,15 @@ def sha256(path: Path) -> str:
 
 
 @contextlib.contextmanager
-def temp_dest() -> abc.Iterator[Path]:
+def temp_dest() -> abc.Iterator[pathlib.Path]:
     """Yield a fresh temporary directory as a ``Path`` (removed on exit)."""
     with tempfile.TemporaryDirectory() as tmp:
-        yield Path(tmp)
+        yield pathlib.Path(tmp)
 
 
 def download_and_extract(
-    url: str, dest: Path, *, expected_sha256: str | None = None
-) -> Path:
+    url: str, dest: pathlib.Path, *, expected_sha256: str | None = None
+) -> pathlib.Path:
     """Download the tarball at *url* into *dest* and unpack it.
 
     When *expected_sha256* is given the download is verified before
@@ -86,7 +86,7 @@ def download_and_extract(
     return extract_dir
 
 
-def find_skill_root(extract_dir: Path) -> Path:
+def find_skill_root(extract_dir: pathlib.Path) -> pathlib.Path:
     """Return the directory containing ``SKILL.md`` under *extract_dir*."""
     matches = list(extract_dir.glob("*/SKILL.md"))
     if not matches:
@@ -94,7 +94,7 @@ def find_skill_root(extract_dir: Path) -> Path:
     return matches[0].parent
 
 
-def install_over(src: Path, dst: Path) -> None:
+def install_over(src: pathlib.Path, dst: pathlib.Path) -> None:
     """Replace *dst*'s skill files with those from *src*, in place.
 
     Each top-level entry of the freshly extracted skill root (``SKILL.md``,

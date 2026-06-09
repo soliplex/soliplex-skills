@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import dataclasses
 import difflib
+import pathlib
 import re
+import typing
 import warnings
-from pathlib import Path
-from typing import Literal
 
 from soliplex_skills import _archive
 from soliplex_skills import metadata
@@ -30,7 +30,7 @@ class PointerUnavailable(LookupError):
         super().__init__(f"could not resolve the {pointer_tag!r} pointer")
 
 
-def _tree_text(root: Path) -> dict[str, list[str]]:
+def _tree_text(root: pathlib.Path) -> dict[str, list[str]]:
     """Map every file under *root* to its lines (decoded leniently)."""
     out: dict[str, list[str]] = {}
     for path in sorted(root.rglob("*")):
@@ -45,7 +45,7 @@ def _tree_text(root: Path) -> dict[str, list[str]]:
     return out
 
 
-def _read_tree(root: Path) -> dict[str, list[str]]:
+def _read_tree(root: pathlib.Path) -> dict[str, list[str]]:
     """Map every file under *root* to its lines, normalizing the build stamp.
 
     The per-build ``metadata.source_commit`` line stamped into ``SKILL.md`` is
@@ -194,8 +194,8 @@ class SkillVersions:
         return target, self._asset_url(target), None
 
     def _fetch_skill_root(
-        self, asset_url: str, sha256: str | None, dest: Path
-    ) -> Path:
+        self, asset_url: str, sha256: str | None, dest: pathlib.Path
+    ) -> pathlib.Path:
         extract_dir = _archive.download_and_extract(
             asset_url, dest, expected_sha256=sha256
         )
@@ -206,8 +206,8 @@ class SkillVersions:
     def list(
         self,
         *,
-        kind: Literal["rolling", "release"] | None = None,
-        installed_path: Path | None = None,
+        kind: typing.Literal["rolling", "release"] | None = None,
+        installed_path: pathlib.Path | None = None,
         mark_latest: bool = False,
     ) -> list[dict]:
         """Return skill-bearing releases, newest first (minus the pointer).
@@ -261,7 +261,7 @@ class SkillVersions:
 
     def diff(
         self,
-        installed_path: Path,
+        installed_path: pathlib.Path,
         target: str = "latest",
         *,
         name_only: bool = False,
@@ -318,7 +318,7 @@ class SkillVersions:
 
     def upgrade(
         self,
-        installed_path: Path,
+        installed_path: pathlib.Path,
         target: str = "latest",
         *,
         force: bool = False,

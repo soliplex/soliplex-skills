@@ -11,7 +11,7 @@ installed (upgrading it in place), this module covers the first-time install:
 from __future__ import annotations
 
 import dataclasses
-from pathlib import Path
+import pathlib
 
 from soliplex_skills import _archive
 from soliplex_skills import releases
@@ -57,8 +57,8 @@ class PublishedSkill:
 
 
 def download_skill(
-    spec: PublishedSkill, version: str | None, dest: Path
-) -> Path:
+    spec: PublishedSkill, version: str | None, dest: pathlib.Path
+) -> pathlib.Path:
     """Download + extract *spec* into *dest*; return the extracted skill root.
 
     When *version* is ``None`` the skill's ``latest`` pointer is read (and its

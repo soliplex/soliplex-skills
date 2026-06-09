@@ -8,9 +8,9 @@ the GitHub releases *API* is involved. No test touches the network.
 
 from __future__ import annotations
 
+import pathlib
 import tarfile
 from collections import abc
-from pathlib import Path
 
 import pytest
 
@@ -24,15 +24,15 @@ def render_skill_md(
 
 
 @pytest.fixture
-def write_skill_md(tmp_path: Path):
+def write_skill_md(tmp_path: pathlib.Path):
     """Write a SKILL.md from frontmatter lines; return its path."""
 
     def _write(
         frontmatter_lines: abc.Sequence[str],
         *,
         body: str = "# Demo skill\n",
-        dest: Path | None = None,
-    ) -> Path:
+        dest: pathlib.Path | None = None,
+    ) -> pathlib.Path:
         path = dest or (tmp_path / "SKILL.md")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
@@ -44,7 +44,7 @@ def write_skill_md(tmp_path: Path):
 
 
 @pytest.fixture
-def make_skill(tmp_path: Path):
+def make_skill(tmp_path: pathlib.Path):
     """Build a skill tree (SKILL.md + given files); return its root dir."""
 
     def _make(
@@ -52,8 +52,8 @@ def make_skill(tmp_path: Path):
         *,
         commit: str | None = "abc1234",
         files: abc.Mapping[str, str] | None = None,
-        parent: Path | None = None,
-    ) -> Path:
+        parent: pathlib.Path | None = None,
+    ) -> pathlib.Path:
         root = (parent or tmp_path) / name
         root.mkdir(parents=True, exist_ok=True)
         front = [f"name: {name}"]
@@ -75,7 +75,7 @@ def make_skill(tmp_path: Path):
 def make_tarball():
     """Pack a skill dir into ``<name>/...`` inside a ``.tar.gz``; return it."""
 
-    def _make(skill_dir: Path, dest_tar: Path) -> Path:
+    def _make(skill_dir: pathlib.Path, dest_tar: pathlib.Path) -> pathlib.Path:
         with tarfile.open(dest_tar, "w:gz") as archive:
             archive.add(skill_dir, arcname=skill_dir.name)
         return dest_tar
