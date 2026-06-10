@@ -1204,11 +1204,11 @@ import versions</code> then <code>versions.SkillVersions(...)</code>). The headl
 <tbody>
 <tr>
 <td><code>read_source_commit(skill_md)</code></td>
-<td>the 7-char <code>source_commit</code> recorded in a SKILL.md, or <code>None</code></td>
+<td>the 7-char <code>source_commit</code> recorded in a SKILL.md, or <code>None</code> (parsed via <code>skills_ref</code>)</td>
 </tr>
 <tr>
-<td><code>stamp_source_commit(skill_md, commit)</code></td>
-<td>idempotently record <code>metadata.source_commit</code></td>
+<td><code>stamp_metadata(skill_md, *, version=None, source_commit=None, generated=None)</code></td>
+<td>idempotently record the build-identity <code>metadata</code> entries</td>
 </tr>
 </tbody>
 </table>

@@ -1051,7 +1051,8 @@ the build's identity:</p>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nn">---</span>
 </span></code></pre></div>
 <ul>
-<li><strong><code>version</code></strong> — the skill's own version string. For a
+<li><strong><code>version</code></strong> — the skill's own version string, stamped only for non-rolling
+  (tagged) builds. For a
   <a href="../concepts/#repo-coupled-vs-independently-versioned-skills">repo-coupled skill</a>
   this tracks the repo; for an independently-versioned skill it advances on its
   own cadence.</li>
@@ -1063,9 +1064,10 @@ the build's identity:</p>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Stamping is a build step</p>
-<p>The tracked source <code>SKILL.md</code> carries no <code>source_commit</code>. It is inserted
-only into the built copy under <code>dist/</code>, by
-<a href="../../reference/api/"><code>metadata.stamp_source_commit</code></a> during
+<p>The tracked source <code>SKILL.md</code> carries no <code>source_commit</code> or <code>generated</code>
+stamp. They (and <code>version</code>, for tagged builds) are inserted only into the
+built copy under <code>dist/</code>, by
+<a href="../../reference/api/"><code>metadata.stamp_metadata</code></a> during
 <a href="../../mechanisms/building/">building</a>.</p>
 </div>
 <h2 id="where-skills-are-installed">Where skills are installed<a class="headerlink" href="#where-skills-are-installed" title="Permanent link">&para;</a></h2>

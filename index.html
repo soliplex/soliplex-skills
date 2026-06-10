@@ -1047,7 +1047,7 @@ Actions workflow examples.</p>
   <code>soliplex-concierge</code> build via <code>build.build_skill</code> (<code>discover_skills</code> plus a
   loop for the multi-skill concierge repo); the <code>soliplex-docs</code> builder passes a
   <code>generator</code> hook to <code>build_skill</code> for its nav-derived documentation map. All
-  reuse <code>metadata.stamp_source_commit</code> and in-process <code>skills_ref</code> validation.</li>
+  reuse <code>metadata.stamp_metadata</code> and in-process <code>skills_ref</code> validation.</li>
 <li><strong>Publishing lives in each repo's GitHub Actions workflow</strong> — dual-mode
   releases, the <code>version.json</code> manifest, and prune-to-<code>KEEP_ROLLING</code> — and the
   build step it runs is the part that calls this library.</li>

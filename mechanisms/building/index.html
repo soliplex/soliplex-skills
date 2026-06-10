@@ -1008,13 +1008,15 @@ the <a href="../../reference/api/"><code>build</code> module</a>.</p>
 <h2 id="the-pipeline">The pipeline<a class="headerlink" href="#the-pipeline" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
     S[skills/&amp;lt;name&amp;gt;/] --&gt;|copytree| D[dist/&amp;lt;name&amp;gt;/]
-    D --&gt;|stamp source_commit| D2[dist/&amp;lt;name&amp;gt;/ stamped]
+    D --&gt;|stamp commit/date/version| D2[dist/&amp;lt;name&amp;gt;/ stamped]
     D2 --&gt;|skills_ref.validate| OK[validated build]</code></pre>
 <ol>
 <li><strong>Assemble</strong> — copy the skill's source tree into <code>dist/&lt;name&gt;/</code>, skipping
    <code>__pycache__</code>.</li>
-<li><strong>Stamp</strong> — write <code>metadata.source_commit</code> into the copied <code>SKILL.md</code> (the
-   commit defaults to the repo's git <code>HEAD</code>). The tracked source is never
+<li><strong>Stamp</strong> — write the build identity into the copied <code>SKILL.md</code>'s
+   <code>metadata</code>: <code>source_commit</code> (defaulting to the repo's git <code>HEAD</code>),
+   <code>generated</code> (the build date, defaulting to today), and — when supplied —
+   <code>version</code> (omitted for rolling builds). The tracked source is never
    modified.</li>
 <li><strong>Validate</strong> — run the agent-skills reference validator
    (<code>skills_ref.validate()</code>) against the built directory.</li>
@@ -1028,20 +1030,22 @@ is the <a href="../publishing/">publishing workflow</a>'s job, not the build scr
   (those containing a <code>SKILL.md</code>) under <code>skills_dir</code>. Repos that ship several
   skills (e.g. <code>soliplex-concierge</code>) iterate over this.</li>
 <li><strong><code>git_head_commit(repo_dir)</code></strong> — the repo's current commit SHA, or <code>None</code>.</li>
-<li><strong><code>build_skill(name, *, src, dist, commit=None, validate=True,
-  generator=None)</code></strong> — run the three steps above and return the built
-  <code>dist/&lt;name&gt;/</code> path. An optional <code>generator(out_dir)</code> runs between the stamp
+<li><strong><code>build_skill(name, *, src, dist, commit=None, version=None,
+  generated=None, validate=True, generator=None)</code></strong> — run the three steps above
+  and return the built <code>dist/&lt;name&gt;/</code> path. <code>version</code> / <code>generated</code> feed the
+  stamp (see step 2). An optional <code>generator(out_dir)</code> runs between the stamp
   and validate steps — a hook for build-time content (e.g. the docs skill
   copies <code>docs/</code> into <code>references/</code> and appends a nav-derived map to
   <code>SKILL.md</code>).</li>
 </ul>
-<p>Stamping itself lives in <a href="../../reference/api/"><code>metadata.stamp_source_commit</code></a>,
-shared with the version-management client so the <em>write</em> and the <em>read</em> of
-<code>source_commit</code> cannot drift apart.</p>
+<p>Stamping itself lives in <a href="../../reference/api/"><code>metadata.stamp_metadata</code></a>,
+shared with the version-management client (which parses frontmatter through
+<code>skills_ref</code>) so the <em>write</em> and the <em>read</em> of the build identity cannot drift
+apart.</p>
 <div class="admonition note">
 <p class="admonition-title">One build path</p>
 <p>Every repo builds through <code>build.build_skill</code>, so stamping
-(<code>metadata.stamp_source_commit</code>) and validation behave identically across
+(<code>metadata.stamp_metadata</code>) and validation behave identically across
 skills. <code>discover_skills</code> builds several at once (the <code>soliplex-concierge</code>
 case), and an optional <code>generator</code> hook injects build-time content (the
 <code>soliplex-docs</code> documentation map).</p>
