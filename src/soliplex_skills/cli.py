@@ -92,10 +92,12 @@ _BUILD_DESCRIPTION = """\
 Assemble, stamp, and validate skill(s) into a distribution directory.
 
 Copies each skill under --src into <dist>/<name>/ (skipping
-__pycache__), stamps its SKILL.md with --commit (defaulting to the
-source tree's git HEAD), and -- unless --no-validate -- runs the
-agent-skills validator. With --skill only that one skill is built;
-otherwise every skill directory under --src is built.\
+__pycache__) and stamps its SKILL.md metadata with the source commit
+(--commit, defaulting to the source tree's git HEAD), the build date
+(--date, defaulting to today), and -- when given -- the published
+--version (omit it for rolling builds). Unless --no-validate, the
+agent-skills validator is then run. With --skill only that one skill is
+built; otherwise every skill directory under --src is built.\
 """
 
 _BUILD_EPILOG = """\
@@ -180,6 +182,8 @@ def _cmd_build(args: argparse.Namespace) -> int:
             src=args.src,
             dist=args.dist,
             commit=args.commit,
+            version=args.version,
+            generated=args.date,
             validate=not args.no_validate,
         )
     return 0
@@ -307,6 +311,16 @@ def _build_parser() -> argparse.ArgumentParser:
     p_build.add_argument(
         "--commit",
         help="Source commit to stamp into SKILL.md (default: git HEAD).",
+    )
+    p_build.add_argument(
+        "--version",
+        help="Published version to stamp into SKILL.md (omit for rolling "
+        "builds).",
+    )
+    p_build.add_argument(
+        "--date",
+        help="Build date (ISO YYYY-MM-DD) to stamp as 'generated' (default: "
+        "today).",
     )
     p_build.add_argument(
         "--no-validate",

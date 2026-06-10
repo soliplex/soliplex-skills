@@ -10,14 +10,16 @@ the [`build` module](../reference/api.md).
 ```mermaid
 flowchart LR
     S[skills/&lt;name&gt;/] -->|copytree| D[dist/&lt;name&gt;/]
-    D -->|stamp source_commit| D2[dist/&lt;name&gt;/ stamped]
+    D -->|stamp commit/date/version| D2[dist/&lt;name&gt;/ stamped]
     D2 -->|skills_ref.validate| OK[validated build]
 ```
 
 1. **Assemble** — copy the skill's source tree into `dist/<name>/`, skipping
    `__pycache__`.
-2. **Stamp** — write `metadata.source_commit` into the copied `SKILL.md` (the
-   commit defaults to the repo's git `HEAD`). The tracked source is never
+2. **Stamp** — write the build identity into the copied `SKILL.md`'s
+   `metadata`: `source_commit` (defaulting to the repo's git `HEAD`),
+   `generated` (the build date, defaulting to today), and — when supplied —
+   `version` (omitted for rolling builds). The tracked source is never
    modified.
 3. **Validate** — run the agent-skills reference validator
    (`skills_ref.validate()`) against the built directory.
@@ -33,20 +35,22 @@ The [`build` module](../reference/api.md):
   (those containing a `SKILL.md`) under `skills_dir`. Repos that ship several
   skills (e.g. `soliplex-concierge`) iterate over this.
 - **`git_head_commit(repo_dir)`** — the repo's current commit SHA, or `None`.
-- **`build_skill(name, *, src, dist, commit=None, validate=True,
-  generator=None)`** — run the three steps above and return the built
-  `dist/<name>/` path. An optional `generator(out_dir)` runs between the stamp
+- **`build_skill(name, *, src, dist, commit=None, version=None,
+  generated=None, validate=True, generator=None)`** — run the three steps above
+  and return the built `dist/<name>/` path. `version` / `generated` feed the
+  stamp (see step 2). An optional `generator(out_dir)` runs between the stamp
   and validate steps — a hook for build-time content (e.g. the docs skill
   copies `docs/` into `references/` and appends a nav-derived map to
   `SKILL.md`).
 
-Stamping itself lives in [`metadata.stamp_source_commit`](../reference/api.md),
-shared with the version-management client so the *write* and the *read* of
-`source_commit` cannot drift apart.
+Stamping itself lives in [`metadata.stamp_metadata`](../reference/api.md),
+shared with the version-management client (which parses frontmatter through
+`skills_ref`) so the *write* and the *read* of the build identity cannot drift
+apart.
 
 !!! note "One build path"
     Every repo builds through `build.build_skill`, so stamping
-    (`metadata.stamp_source_commit`) and validation behave identically across
+    (`metadata.stamp_metadata`) and validation behave identically across
     skills. `discover_skills` builds several at once (the `soliplex-concierge`
     case), and an optional `generator` hook injects build-time content (the
     `soliplex-docs` documentation map).

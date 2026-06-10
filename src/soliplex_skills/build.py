@@ -3,7 +3,8 @@
 This is the build half of the release pipeline:
 
 - Copy a skill's source tree into ``dist/<name>/``
-- Stamp its ``SKILL.md`` with the source commit
+- Stamp its ``SKILL.md`` with the source commit, build date, and (when known)
+  the published version
 - (Optional) run a caller-supplied generator to add content to the skill.
 - Validate it with the ``skills-ref`` library.
 
@@ -14,6 +15,7 @@ The CI workflow then packages ``dist/<name>/`` into release assets.
 
 from __future__ import annotations
 
+import datetime
 import pathlib
 import shutil
 import subprocess
@@ -79,19 +81,24 @@ def build_skill(
     src: pathlib.Path,
     dist: pathlib.Path,
     commit: str | None = None,
+    version: str | None = None,
+    generated: str | None = None,
     validate: bool = True,
     generator: SkillGenerator | None = None,
 ) -> pathlib.Path:
     """Assemble, stamp, and validate skill *name* into ``dist/<name>/``.
 
     Copies ``src/<name>/`` to ``dist/<name>/`` (skipping ``__pycache__``) and
-    stamps ``SKILL.md`` with *commit* via
-    :func:`soliplex_skills.metadata.stamp_source_commit` (defaulting to the
-    source tree's git HEAD when ``None``). If *generator* is given, it is then
-    called with the built ``dist/<name>/`` path -- a hook for build-time
-    content, e.g. the docs skill copies ``docs/`` into ``references/`` and
-    appends a nav-derived map to ``SKILL.md``. Finally, when *validate*, the
-    agent-skills validator is run. Returns the built ``dist/<name>/`` path.
+    stamps ``SKILL.md`` via
+    :func:`soliplex_skills.metadata.stamp_metadata` with the build identity:
+    *commit* (defaulting to the source tree's git HEAD when ``None``),
+    *generated* (the ISO build date, defaulting to today), and *version* (only
+    stamped when given -- omit it for rolling builds). If *generator* is given,
+    it is then called with the built ``dist/<name>/`` path -- a hook for
+    build-time content, e.g. the docs skill copies ``docs/`` into
+    ``references/`` and appends a nav-derived map to ``SKILL.md``. Finally,
+    when *validate*, the agent-skills validator is run. Returns the built
+    ``dist/<name>/`` path.
     """
     source = src / name
     if not (source / "SKILL.md").is_file():
@@ -103,8 +110,12 @@ def build_skill(
     shutil.copytree(source, out, ignore=shutil.ignore_patterns("__pycache__"))
 
     resolved = commit if commit is not None else git_head_commit(source)
-    if resolved:
-        metadata.stamp_source_commit(out / "SKILL.md", resolved)
+    metadata.stamp_metadata(
+        out / "SKILL.md",
+        version=version,
+        source_commit=resolved or None,
+        generated=generated or datetime.date.today().isoformat(),
+    )
 
     if generator is not None:
         generator(out)

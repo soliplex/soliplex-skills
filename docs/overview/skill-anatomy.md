@@ -36,7 +36,8 @@ metadata:
 ---
 ```
 
-- **`version`** — the skill's own version string. For a
+- **`version`** — the skill's own version string, stamped only for non-rolling
+  (tagged) builds. For a
   [repo-coupled skill](concepts.md#repo-coupled-vs-independently-versioned-skills)
   this tracks the repo; for an independently-versioned skill it advances on its
   own cadence.
@@ -47,9 +48,10 @@ metadata:
   [release manifest](release-model.md#the-manifest).
 
 !!! note "Stamping is a build step"
-    The tracked source `SKILL.md` carries no `source_commit`. It is inserted
-    only into the built copy under `dist/`, by
-    [`metadata.stamp_source_commit`](../reference/api.md) during
+    The tracked source `SKILL.md` carries no `source_commit` or `generated`
+    stamp. They (and `version`, for tagged builds) are inserted only into the
+    built copy under `dist/`, by
+    [`metadata.stamp_metadata`](../reference/api.md) during
     [building](../mechanisms/building.md).
 
 ## Where skills are installed

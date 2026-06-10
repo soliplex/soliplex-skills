@@ -1,20 +1,35 @@
-"""Read and stamp a skill's installed identity in ``SKILL.md`` frontmatter.
+"""Read and stamp a skill's build identity in ``SKILL.md`` frontmatter.
 
-A built skill records the commit it was assembled from as
-``metadata.source_commit`` in its ``SKILL.md`` YAML frontmatter.
+A built skill records, under its ``SKILL.md`` YAML frontmatter ``metadata``
+table, the identity of the build:
 
-That value is the skill's installed identity: the build step stamps it
-(:func:`stamp_source_commit`) and ``versions``/``releases`` read it back
-(:func:`read_source_commit`) to tell which published build is installed.
+- ``source_commit`` -- the 7-char commit the build was assembled from,
+- ``generated`` -- the ISO build date, and
+- ``version`` -- the published version (only for non-rolling builds).
+
+The build step stamps these (:func:`stamp_metadata`) and ``versions`` /
+``releases`` read ``source_commit`` back (:func:`read_source_commit`) to tell
+which published build is installed.
+
+Frontmatter is *parsed* through the shared ``skills_ref`` library, but the
+*write* is a surgical text insertion: ``skills_ref`` ships no writer, and a
+YAML round-trip reformats hand-authored frontmatter (re-wrapping/re-quoting
+descriptions, re-indenting block scalars). Inserting only the new entries
+leaves every other byte untouched.
 """
 
 from __future__ import annotations
 
 import pathlib
-import re
 
-#: Matches a ``source_commit: "abc1234"`` frontmatter line (quotes optional).
-COMMIT_RE = re.compile(r'^\s*source_commit:\s*"?([0-9a-fA-F]+)"?\s*$')
+import skills_ref
+
+#: ``metadata.*`` keys the build stamps, in canonical frontmatter order.
+STAMP_KEYS = ("version", "source_commit", "generated")
+
+#: Per-build volatile stamps normalized out of ``diff`` comparison. ``version``
+#: is deliberately excluded -- a version change is a genuine difference.
+VOLATILE_STAMP_KEYS = ("source_commit", "generated")
 
 
 class MissingFrontmatterError(ValueError):
@@ -24,6 +39,20 @@ class MissingFrontmatterError(ValueError):
         super().__init__(f"{skill_md} has no YAML frontmatter to stamp")
 
 
+def _read_metadata(skill_md: pathlib.Path) -> dict[str, str]:
+    """Return *skill_md*'s parsed ``metadata`` table, or ``{}`` if unreadable.
+
+    Delegates to :func:`skills_ref.read_properties`; an empty dict is returned
+    when the SKILL.md is missing or its frontmatter cannot be parsed (any
+    :class:`skills_ref.SkillError`).
+    """
+    try:
+        props = skills_ref.read_properties(skill_md.parent)
+    except skills_ref.SkillError:
+        return {}
+    return props.metadata or {}
+
+
 def read_source_commit(skill_md: pathlib.Path) -> str | None:
     """Return the 7-char ``source_commit`` recorded in *skill_md*, or ``None``.
 
@@ -31,39 +60,55 @@ def read_source_commit(skill_md: pathlib.Path) -> str | None:
     ``source_commit`` entry (e.g. the tracked source SKILL.md, which is left
     unstamped -- only built copies carry the commit).
     """
-    if not skill_md.exists():
-        return None
-    for line in skill_md.read_text(encoding="utf-8").splitlines():
-        match = COMMIT_RE.match(line)
-        if match:
-            return match.group(1)[:7]
-    return None
+    commit = _read_metadata(skill_md).get("source_commit")
+    return commit[:7] if commit else None
 
 
-def stamp_source_commit(skill_md: pathlib.Path, commit: str) -> None:
-    """Record ``metadata.source_commit: "<commit>"`` in *skill_md*.
+def stamp_metadata(
+    skill_md: pathlib.Path,
+    *,
+    version: str | None = None,
+    source_commit: str | None = None,
+    generated: str | None = None,
+) -> None:
+    """Record the build-identity ``metadata`` entries in *skill_md*.
 
-    Idempotent: a SKILL.md that already carries a ``source_commit`` is left
-    untouched. The entry is inserted under an existing ``metadata:`` block if
-    present, otherwise a new ``metadata:`` block is appended just before the
-    closing ``---`` fence. Raises if the file has no YAML frontmatter to stamp.
+    Only the non-``None`` arguments are written, and each is **idempotent**:
+    a key already present in the frontmatter ``metadata`` table is left
+    untouched. New entries are inserted in :data:`STAMP_KEYS` order under an
+    existing ``metadata:`` block (a new block is appended just before the
+    closing ``---`` fence when absent). Every other line and the body are
+    preserved verbatim. Raises :class:`MissingFrontmatterError` if the file has
+    no YAML frontmatter to stamp.
     """
+    existing = _read_metadata(skill_md)
+    values = {
+        "version": version,
+        "source_commit": source_commit,
+        "generated": generated,
+    }
+    pending = [
+        key
+        for key in STAMP_KEYS
+        if values[key] is not None and key not in existing
+    ]
+    if not pending:
+        return
+
     lines = skill_md.read_text(encoding="utf-8").split("\n")
     fences = [i for i, line in enumerate(lines) if line.strip() == "---"]
     if len(fences) < 2:
         raise MissingFrontmatterError(skill_md)
     start, close = fences[0], fences[1]
     front = lines[start + 1 : close]
-    if any(line.strip().startswith("source_commit:") for line in front):
-        return  # already stamped
-    entry = f'  source_commit: "{commit}"'
+    entries = [f'  {key}: "{values[key]}"' for key in pending]
     meta_idx = next(
         (i for i, line in enumerate(front) if line.strip() == "metadata:"),
         None,
     )
     if meta_idx is not None:
-        front.insert(meta_idx + 1, entry)
+        front[meta_idx + 1 : meta_idx + 1] = entries
     else:
-        front += ["metadata:", entry]
+        front += ["metadata:", *entries]
     lines[start + 1 : close] = front
     skill_md.write_text("\n".join(lines), encoding="utf-8")

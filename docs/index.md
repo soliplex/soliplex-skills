@@ -69,7 +69,7 @@ versioned filesystem skill needs:
   `soliplex-concierge` build via `build.build_skill` (`discover_skills` plus a
   loop for the multi-skill concierge repo); the `soliplex-docs` builder passes a
   `generator` hook to `build_skill` for its nav-derived documentation map. All
-  reuse `metadata.stamp_source_commit` and in-process `skills_ref` validation.
+  reuse `metadata.stamp_metadata` and in-process `skills_ref` validation.
 - **Publishing lives in each repo's GitHub Actions workflow** — dual-mode
   releases, the `version.json` manifest, and prune-to-`KEEP_ROLLING` — and the
   build step it runs is the part that calls this library.
