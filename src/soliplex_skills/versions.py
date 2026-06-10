@@ -15,6 +15,9 @@ import re
 import typing
 import warnings
 
+import skills_ref
+from skills_ref.parser import parse_frontmatter
+
 from soliplex_skills import _archive
 from soliplex_skills import metadata
 from soliplex_skills import releases
@@ -45,19 +48,49 @@ def _tree_text(root: pathlib.Path) -> dict[str, list[str]]:
     return out
 
 
-def _read_tree(root: pathlib.Path) -> dict[str, list[str]]:
-    """Map every file under *root* to its lines, normalizing the build stamp.
+def _normalize_skill_md(skill_md: pathlib.Path) -> list[str]:
+    """Return ``SKILL.md`` as comparable lines with volatile stamps removed.
 
-    The per-build ``metadata.source_commit`` line stamped into ``SKILL.md`` is
-    dropped so two builds of identical content compare equal; every other line
-    (including the build-time ``## Documentation map``) is kept.
+    The frontmatter is parsed with ``skills_ref`` and re-rendered to a
+    canonical (order- and quote-insensitive) form with the per-build
+    :data:`~soliplex_skills.metadata.VOLATILE_STAMP_KEYS` (``source_commit``,
+    ``generated``) dropped, so two builds of identical content compare equal;
+    ``metadata.version`` is kept (a version change is a genuine difference).
+    The markdown body is appended verbatim. A SKILL.md whose frontmatter
+    cannot be parsed falls back to its raw lines.
+    """
+    text = skill_md.read_text(encoding="utf-8", errors="replace")
+    try:
+        front, body = parse_frontmatter(text)
+    except skills_ref.SkillError:
+        return text.splitlines()
+
+    lines: list[str] = []
+    table = front.get("metadata")
+    for key, value in front.items():
+        if key != "metadata":
+            lines.append(f"{key}: {value}")
+    if isinstance(table, dict):
+        for key, value in table.items():
+            if key not in metadata.VOLATILE_STAMP_KEYS:
+                lines.append(f"metadata.{key}: {value}")
+    lines.append("")
+    lines.extend(body.splitlines())
+    return lines
+
+
+def _read_tree(root: pathlib.Path) -> dict[str, list[str]]:
+    """Map every file under *root* to its lines, normalizing ``SKILL.md``.
+
+    ``SKILL.md`` is canonicalized via :func:`_normalize_skill_md`, dropping the
+    per-build stamps (``source_commit``, ``generated``) so two builds of
+    identical content compare equal; every other file is mapped to its lines
+    verbatim.
     """
     files = _tree_text(root)
-    for rel, lines in files.items():
+    for rel in files:
         if rel == "SKILL.md":
-            files[rel] = [
-                line for line in lines if not metadata.COMMIT_RE.match(line)
-            ]
+            files[rel] = _normalize_skill_md(root / rel)
     return files
 
 
@@ -268,9 +301,10 @@ class SkillVersions:
     ) -> int:
         """Show how the skill at *installed_path* differs from *target*.
 
-        Compares the whole skill tree; the per-build ``source_commit`` stamp in
-        ``SKILL.md`` is ignored. Returns ``0`` when identical, ``1`` when
-        differences were reported (a process-style status code).
+        Compares the whole skill tree; the per-build stamps in ``SKILL.md``
+        (``source_commit``, ``generated``) are normalized out. Returns ``0``
+        when identical, ``1`` when differences were reported (a process-style
+        status code).
         """
         with _archive.temp_dest() as dest:
             tag, asset_url, sha256 = self._resolve_target(target)
@@ -294,9 +328,9 @@ class SkillVersions:
 
         Neither side need be installed: *left* and *right* are each a concrete
         tag or the literal ``"latest"`` (expanded via the pointer manifest).
-        Compares the whole skill tree; the per-build ``source_commit`` stamp in
-        ``SKILL.md`` is ignored. Returns ``0`` when identical, ``1`` when
-        differences were reported.
+        Compares the whole skill tree; the per-build stamps in ``SKILL.md``
+        (``source_commit``, ``generated``) are normalized out. Returns ``0``
+        when identical, ``1`` when differences were reported.
         """
         with (
             _archive.temp_dest() as dest_left,

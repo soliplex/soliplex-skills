@@ -30,7 +30,8 @@ def _spec():
 def _skill_md(commit, body):
     """Render a SKILL.md with a stamped ``source_commit`` and a custom body."""
     return (
-        f"---\nname: soliplex-docs\nmetadata:\n"
+        f"---\nname: soliplex-docs\n"
+        f'description: "Soliplex docs."\nmetadata:\n'
         f'  source_commit: "{commit}"\n---\n\n{body}'
     )
 
@@ -363,6 +364,92 @@ def test_diff_ignores_source_commit_stamp(
 
     assert rc == 0
     assert "No differences." in capsys.readouterr().out
+
+
+def _stamped_md(*, commit, generated="2026-05-29", version=None):
+    """Render a SKILL.md whose metadata carries the given build stamps."""
+    stamps = [f'  source_commit: "{commit}"', f'  generated: "{generated}"']
+    if version is not None:
+        stamps.insert(0, f'  version: "{version}"')
+    front = "\n".join(stamps)
+    return (
+        f'---\nname: soliplex-docs\ndescription: "Soliplex docs."\n'
+        f"metadata:\n{front}\n---\n\n# Demo skill\n"
+    )
+
+
+def test_diff_ignores_generated_stamp(
+    monkeypatch, tmp_path, make_skill, make_tarball, capsys
+):
+    installed = make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files={
+            "SKILL.md": _stamped_md(commit="aaaaaaa", generated="2026-01-01")
+        },
+        parent=tmp_path / "installed",
+    )
+    mapping, _ = _publish(
+        make_skill,
+        make_tarball,
+        tmp_path,
+        commit="bbbbbbb",
+        files={
+            "SKILL.md": _stamped_md(commit="bbbbbbb", generated="2026-12-31")
+        },
+    )
+    monkeypatch.setattr(releases, "fetch", _serve(mapping))
+
+    rc = versions.SkillVersions(_spec()).diff(installed, "latest")
+
+    assert rc == 0
+    assert "No differences." in capsys.readouterr().out
+
+
+def test_diff_reports_version_difference(
+    monkeypatch, tmp_path, make_skill, make_tarball, capsys
+):
+    installed = make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files={"SKILL.md": _stamped_md(commit="aaaaaaa", version="1.0.0")},
+        parent=tmp_path / "installed",
+    )
+    mapping, _ = _publish(
+        make_skill,
+        make_tarball,
+        tmp_path,
+        commit="bbbbbbb",
+        files={"SKILL.md": _stamped_md(commit="bbbbbbb", version="2.0.0")},
+    )
+    monkeypatch.setattr(releases, "fetch", _serve(mapping))
+
+    rc = versions.SkillVersions(_spec()).diff(installed, "latest")
+
+    assert rc == 1
+    assert "~ changed: SKILL.md" in capsys.readouterr().out
+
+
+def test_normalize_skill_md_without_metadata_block(tmp_path):
+    skill_md = tmp_path / "SKILL.md"
+    skill_md.write_text(
+        '---\nname: soliplex-docs\ndescription: "d"\n---\n\n# Body\n',
+        encoding="utf-8",
+    )
+
+    lines = versions._normalize_skill_md(skill_md)
+
+    assert "name: soliplex-docs" in lines
+    assert not any(line.startswith("metadata.") for line in lines)
+
+
+def test_normalize_skill_md_unparseable_falls_back(tmp_path):
+    skill_md = tmp_path / "SKILL.md"
+    skill_md.write_text("no frontmatter here\n", encoding="utf-8")
+
+    lines = versions._normalize_skill_md(skill_md)
+
+    assert lines == ["no frontmatter here"]
 
 
 def test_diff_reports_skill_md_body_change(

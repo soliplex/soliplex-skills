@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import subprocess
 from unittest import mock
 
@@ -129,7 +130,7 @@ def test_build_skill_w_generator(tmp_path, make_skill, monkeypatch):
     dist = tmp_path / "dist"
 
     stamp = mock.Mock()
-    monkeypatch.setattr(build.metadata, "stamp_source_commit", stamp)
+    monkeypatch.setattr(build.metadata, "stamp_metadata", stamp)
 
     validate = mock.Mock(return_value=[])
     monkeypatch.setattr(build, "skills_ref", mock.Mock(validate=validate))
@@ -141,9 +142,67 @@ def test_build_skill_w_generator(tmp_path, make_skill, monkeypatch):
     )
 
     out = dist / "demo"
-    stamp.assert_called_once_with(out / "SKILL.md", "abc1234")
+    stamp.assert_called_once_with(
+        out / "SKILL.md",
+        version=None,
+        source_commit="abc1234",
+        generated=mock.ANY,
+    )
     generator.assert_called_once_with(out)
     validate.assert_called_once_with(out)
+
+
+def test_build_skill_stamps_version_and_generated(tmp_path, make_skill):
+    src = tmp_path / "skills"
+    make_skill("demo", commit=None, parent=src)
+    dist = tmp_path / "dist"
+
+    out = build.build_skill(
+        "demo",
+        src=src,
+        dist=dist,
+        commit="abc1234",
+        version="v1.2.3",
+        generated="2026-06-09",
+        validate=False,
+    )
+
+    text = (out / "SKILL.md").read_text(encoding="utf-8")
+    assert 'version: "v1.2.3"' in text
+    assert 'source_commit: "abc1234"' in text
+    assert 'generated: "2026-06-09"' in text
+
+
+def test_build_skill_generated_defaults_to_today(
+    tmp_path, make_skill, monkeypatch
+):
+    src = tmp_path / "skills"
+    make_skill("demo", commit=None, parent=src)
+    dist = tmp_path / "dist"
+
+    fake_datetime = mock.Mock()
+    fake_datetime.date.today.return_value = datetime.date(2026, 6, 9)
+    monkeypatch.setattr(build, "datetime", fake_datetime)
+
+    out = build.build_skill(
+        "demo", src=src, dist=dist, commit="abc1234", validate=False
+    )
+
+    assert 'generated: "2026-06-09"' in (out / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_build_skill_omits_version_when_absent(tmp_path, make_skill):
+    src = tmp_path / "skills"
+    make_skill("demo", commit=None, parent=src)
+    dist = tmp_path / "dist"
+
+    out = build.build_skill(
+        "demo", src=src, dist=dist, commit="abc1234", validate=False
+    )
+
+    assert "version:" not in (out / "SKILL.md").read_text(encoding="utf-8")
 
 
 def test_build_skill_unstamped_without_commit(

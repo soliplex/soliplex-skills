@@ -18,8 +18,15 @@ import pytest
 def render_skill_md(
     frontmatter_lines: abc.Sequence[str], *, body: str = "# Demo skill\n"
 ) -> str:
-    """Return SKILL.md text wrapping *frontmatter_lines* in ``---`` fences."""
-    front = "\n".join(frontmatter_lines)
+    """Return SKILL.md text wrapping *frontmatter_lines* in ``---`` fences.
+
+    A default ``description`` is appended when the caller supplies none, so the
+    rendered frontmatter stays spec-valid for ``skills_ref`` parsing.
+    """
+    lines = list(frontmatter_lines)
+    if not any(line.strip().startswith("description:") for line in lines):
+        lines.append('description: "A demo skill for tests."')
+    front = "\n".join(lines)
     return f"---\n{front}\n---\n\n{body}"
 
 

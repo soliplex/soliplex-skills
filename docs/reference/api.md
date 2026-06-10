@@ -28,8 +28,8 @@ import versions` then `versions.SkillVersions(...)`). The headline types are:
 
 | Member | Purpose |
 | --- | --- |
-| `read_source_commit(skill_md)` | the 7-char `source_commit` recorded in a SKILL.md, or `None` |
-| `stamp_source_commit(skill_md, commit)` | idempotently record `metadata.source_commit` |
+| `read_source_commit(skill_md)` | the 7-char `source_commit` recorded in a SKILL.md, or `None` (parsed via `skills_ref`) |
+| `stamp_metadata(skill_md, *, version=None, source_commit=None, generated=None)` | idempotently record the build-identity `metadata` entries |
 
 ## `releases` — GitHub releases access
 
