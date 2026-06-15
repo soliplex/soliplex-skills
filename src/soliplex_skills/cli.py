@@ -5,10 +5,12 @@ The installed console script. It dispatches:
 * ``list``    -- published versions of a skill (see :mod:`.versions`)
 * ``diff``    -- installed skill vs. a published version
 * ``upgrade`` -- install a published version in place
+* ``install`` -- first-time install of a published skill into a stack,
+  optionally defanged (see :mod:`.install`)
 * ``build``   -- assemble/stamp/validate a skill into ``dist/``
   (see :mod:`.build`)
 
-The ``list``/``diff``/``upgrade`` commands read each skill's
+The ``list``/``diff``/``upgrade``/``install`` commands read each skill's
 :class:`~soliplex_skills.versions.SkillSpec` from a ``[tool.soliplex-skills]``
 stanza in ``pyproject.toml`` (see :mod:`.config`).
 """
@@ -23,6 +25,7 @@ from collections import abc
 
 from soliplex_skills import build
 from soliplex_skills import config
+from soliplex_skills import install
 from soliplex_skills.versions import SkillSpec
 from soliplex_skills.versions import SkillVersions
 from soliplex_skills.versions import format_list_table
@@ -88,6 +91,28 @@ exit status:
   2  invalid skill configuration\
 """
 
+_INSTALL_DESCRIPTION = """\
+Download a published skill and install it under --dest.
+
+The skill lands in <dest>/<name>/. TARGET is a tag or 'latest' (the
+default, resolved via the skill's pointer manifest); the download's
+sha256 is verified against the manifest when known. It is extracted to
+a temporary directory and then installed over any existing copy --
+directories removed first -- so files deleted upstream do not linger.
+An existing copy whose source_commit already matches TARGET is left
+untouched unless --force is given. With --defang the bundled
+scripts/skill_versions.py self-management helper and the SKILL.md
+section documenting it are stripped, so the copy is safe to run inside
+a Soliplex room agent. --dry-run reports the plan without writing
+anything.\
+"""
+
+_INSTALL_EPILOG = """\
+exit status:
+  0  installed, upgraded, or already up to date (a no-op)
+  2  invalid skill configuration\
+"""
+
 _BUILD_DESCRIPTION = """\
 Assemble, stamp, and validate skill(s) into a distribution directory.
 
@@ -109,10 +134,17 @@ exit status:
 
 def _add_spec_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
+        "--project",
+        type=pathlib.Path,
+        help="A pyproject.toml with [tool.soliplex-skills], or a directory "
+        "containing one, to read the skill config from (default: search "
+        "upward from the cwd).",
+    )
+    parser.add_argument(
         "--pyproject",
         type=pathlib.Path,
-        help="pyproject.toml with [tool.soliplex-skills] (default: search "
-        "upward from the cwd).",
+        help="Deprecated alias for --project, accepting a pyproject.toml file "
+        "only; --project takes precedence.",
     )
     parser.add_argument(
         "--skill",
@@ -120,8 +152,24 @@ def _add_spec_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _pyproject_from_project(project: pathlib.Path) -> pathlib.Path:
+    """Resolve a ``--project`` path to its ``pyproject.toml``.
+
+    *project* may be the ``pyproject.toml`` file itself or a directory
+    containing one. Raises :class:`config.PyprojectNotFound` if no file is
+    found there.
+    """
+    path = project / "pyproject.toml" if project.is_dir() else project
+    if not path.is_file():
+        raise config.PyprojectNotFound(project)
+    return path
+
+
 def _resolve_spec(args: argparse.Namespace) -> SkillSpec:
-    pyproject = args.pyproject or config.find_pyproject()
+    if args.project is not None:
+        pyproject = _pyproject_from_project(args.project)
+    else:
+        pyproject = args.pyproject or config.find_pyproject()
     specs = config.load_skill_specs(pyproject)
     if args.skill:
         if args.skill not in specs:
@@ -169,6 +217,45 @@ def _cmd_upgrade(args: argparse.Namespace) -> int:
         force=args.force,
         dry_run=args.dry_run,
     )
+
+
+def _published_from_spec(spec: SkillSpec) -> install.PublishedSkill:
+    """Adapt a config :class:`SkillSpec` to an ``install.PublishedSkill``."""
+    return install.PublishedSkill(
+        name=spec.skill_name,
+        owner=spec.owner,
+        repo=spec.repo,
+        asset_tarball=spec.asset_tarball,
+        pointer_tag=spec.pointer_tag,
+        pointer_manifest=spec.pointer_manifest,
+    )
+
+
+_INSTALL_MESSAGES = {
+    install.InstallStatus.ADDED: "Installed {name} into {root}.",
+    install.InstallStatus.UPGRADED: "Upgraded {name} at {root}.",
+    install.InstallStatus.UNCHANGED: "Already up to date: {name} at {root}.",
+}
+
+
+def _cmd_install(args: argparse.Namespace) -> int:
+    spec = _published_from_spec(_resolve_spec(args))
+    version = None if args.target == "latest" else args.target
+    skill_root, status = install.install_skill(
+        spec,
+        version,
+        args.dest,
+        installed_by=args.installed_by,
+        defang=args.defang,
+        force=args.force,
+        dry_run=args.dry_run,
+    )
+    if args.dry_run:
+        print(f"Would install {spec.name} into {skill_root}.")
+    else:
+        message = _INSTALL_MESSAGES[status]
+        print(message.format(name=spec.name, root=skill_root))
+    return 0
 
 
 def _cmd_build(args: argparse.Namespace) -> int:
@@ -285,6 +372,51 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Report what would be installed without writing anything.",
     )
     p_up.set_defaults(func=_cmd_upgrade)
+
+    p_install = sub.add_parser(
+        "install",
+        help="Install a published skill into a stack (optionally defanged).",
+        description=_INSTALL_DESCRIPTION,
+        epilog=_INSTALL_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    _add_spec_args(p_install)
+    p_install.add_argument(
+        "--dest",
+        required=True,
+        type=pathlib.Path,
+        help="Directory the skill is installed under, as <dest>/<name>/.",
+    )
+    p_install.add_argument(
+        "target",
+        nargs="?",
+        default="latest",
+        help="Published version to install: a tag, or 'latest' (the default).",
+    )
+    p_install.add_argument(
+        "--installed-by",
+        default="soliplex-skills",
+        help="Name of the installer recorded in the defang note (only used "
+        "with --defang; default: 'soliplex-skills').",
+    )
+    p_install.add_argument(
+        "--defang",
+        action="store_true",
+        help="Strip the scripts/skill_versions.py self-management helper and "
+        "its SKILL.md section (default: keep them).",
+    )
+    p_install.add_argument(
+        "--force",
+        action="store_true",
+        help="Reinstall even when the installed commit already matches "
+        "TARGET.",
+    )
+    p_install.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report what would be installed without writing anything.",
+    )
+    p_install.set_defaults(func=_cmd_install)
 
     p_build = sub.add_parser(
         "build",

@@ -67,6 +67,33 @@ def _publish(make_skill, make_tarball, tmp_path, *, commit):
     }
 
 
+def _publish_with_helper(make_skill, make_tarball, tmp_path, *, commit):
+    skill = make_skill(
+        "soliplex-docs",
+        commit=commit,
+        files={
+            "references/a.md": "hi\n",
+            "scripts/skill_versions.py": "# helper\n",
+        },
+        parent=tmp_path / f"pub-{commit}",
+    )
+    tarball = make_tarball(skill, tmp_path / f"{commit}.tar.gz")
+    manifest = {
+        "tag": f"docs-2026.05.29-{commit}",
+        "source_commit": commit,
+        "generated": "2026-05-29",
+        "sha256": _archive.sha256(tarball),
+        "asset_url": (
+            "https://github.com/soliplex/soliplex/releases/download/"
+            f"docs-2026.05.29-{commit}/soliplex-docs-skill.tar.gz"
+        ),
+    }
+    return {
+        "soliplex-docs-skill.tar.gz": tarball.read_bytes(),
+        "latest.json": json.dumps(manifest).encode("utf-8"),
+    }
+
+
 def test_list_renders_table(tmp_path, monkeypatch, capsys):
     pp = _write_pyproject(tmp_path, _DOCS)
     raw = [
@@ -96,6 +123,20 @@ def test_list_json(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(releases, "fetch", _serve({}))  # no 'latest' pointer
 
     rc = cli.main(["list", "--pyproject", str(pp), "--json"])
+
+    assert rc == 0
+    assert json.loads(capsys.readouterr().out) == []
+
+
+def test_list_accepts_project_directory(tmp_path, monkeypatch, capsys):
+    # --project is shared via _add_spec_args, so non-install commands take it.
+    project = tmp_path / "stack"
+    project.mkdir()
+    _write_pyproject(project, _DOCS)
+    monkeypatch.setattr(releases, "list_releases", lambda owner, repo: [])
+    monkeypatch.setattr(releases, "fetch", _serve({}))  # no 'latest' pointer
+
+    rc = cli.main(["list", "--project", str(project), "--json"])
 
     assert rc == 0
     assert json.loads(capsys.readouterr().out) == []
@@ -316,6 +357,219 @@ def test_upgrade_dry_run(tmp_path, monkeypatch, make_skill, make_tarball):
 
     assert rc == 0
     assert (installed / "references" / "a.md").read_text() == "old\n"
+
+
+def test_install_adds_and_keeps_helper_by_default(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    pp = _write_pyproject(tmp_path, _DOCS)
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        _serve(
+            _publish_with_helper(
+                make_skill, make_tarball, tmp_path, commit="bbbbbbb"
+            )
+        ),
+    )
+    dest = tmp_path / "skills"
+
+    rc = cli.main(["install", "--pyproject", str(pp), "--dest", str(dest)])
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "Installed soliplex-docs" in out
+    root = dest / "soliplex-docs"
+    assert (root / "scripts" / "skill_versions.py").is_file()
+
+
+def test_install_defang_strips_helper_for_explicit_tag(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    pp = _write_pyproject(tmp_path, _DOCS)
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        _serve(
+            _publish_with_helper(
+                make_skill, make_tarball, tmp_path, commit="bbbbbbb"
+            )
+        ),
+    )
+    dest = tmp_path / "skills"
+
+    rc = cli.main(
+        [
+            "install",
+            "--pyproject",
+            str(pp),
+            "--dest",
+            str(dest),
+            "--defang",
+            "docs-2026.05.29-bbbbbbb",
+        ]
+    )
+
+    assert rc == 0
+    root = dest / "soliplex-docs"
+    assert not (root / "scripts" / "skill_versions.py").exists()
+
+
+def test_install_unchanged_when_commit_matches(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    pp = _write_pyproject(tmp_path, _DOCS)
+    dest = tmp_path / "skills"
+    make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files={"references/a.md": "old\n"},
+        parent=dest,
+    )
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        _serve(
+            _publish_with_helper(
+                make_skill, make_tarball, tmp_path, commit="aaaaaaa"
+            )
+        ),
+    )
+
+    rc = cli.main(["install", "--pyproject", str(pp), "--dest", str(dest)])
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "Already up to date" in out
+    kept = dest / "soliplex-docs" / "references" / "a.md"
+    assert kept.read_text() == "old\n"
+
+
+def test_install_force_reinstalls_same_commit(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    pp = _write_pyproject(tmp_path, _DOCS)
+    dest = tmp_path / "skills"
+    make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files={"references/a.md": "old\n"},
+        parent=dest,
+    )
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        _serve(
+            _publish_with_helper(
+                make_skill, make_tarball, tmp_path, commit="aaaaaaa"
+            )
+        ),
+    )
+
+    rc = cli.main(
+        ["install", "--pyproject", str(pp), "--dest", str(dest), "--force"]
+    )
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "Upgraded soliplex-docs" in out
+    upgraded = dest / "soliplex-docs" / "references" / "a.md"
+    assert upgraded.read_text() == "hi\n"
+
+
+def test_install_dry_run_writes_nothing(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    pp = _write_pyproject(tmp_path, _DOCS)
+    dest = tmp_path / "skills"
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        _serve(
+            _publish_with_helper(
+                make_skill, make_tarball, tmp_path, commit="bbbbbbb"
+            )
+        ),
+    )
+
+    rc = cli.main(
+        ["install", "--pyproject", str(pp), "--dest", str(dest), "--dry-run"]
+    )
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "Would install soliplex-docs" in out
+    assert not (dest / "soliplex-docs").exists()
+
+
+def test_install_help_documents_output_and_exit_codes(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["install", "--help"])
+
+    out = capsys.readouterr().out
+    assert exc.value.code == 0
+    assert "install it under --dest" in out  # explains the effect
+    assert "--defang" in out  # documents the defang option
+    assert "exit status:" in out  # documents the return codes
+    assert "0  installed, upgraded, or already up to date" in out
+
+
+def test_install_project_directory(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    project = tmp_path / "stack"
+    project.mkdir()
+    _write_pyproject(project, _DOCS)
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        _serve(
+            _publish_with_helper(
+                make_skill, make_tarball, tmp_path, commit="bbbbbbb"
+            )
+        ),
+    )
+    dest = tmp_path / "skills"
+
+    rc = cli.main(["install", "--project", str(project), "--dest", str(dest)])
+
+    assert rc == 0
+    assert "Installed soliplex-docs" in capsys.readouterr().out
+    assert (dest / "soliplex-docs" / "SKILL.md").is_file()
+
+
+def test_install_project_file(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    project = tmp_path / "stack"
+    project.mkdir()
+    pp = _write_pyproject(project, _DOCS)
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        _serve(
+            _publish_with_helper(
+                make_skill, make_tarball, tmp_path, commit="bbbbbbb"
+            )
+        ),
+    )
+    dest = tmp_path / "skills"
+
+    rc = cli.main(["install", "--project", str(pp), "--dest", str(dest)])
+
+    assert rc == 0
+    assert (dest / "soliplex-docs" / "SKILL.md").is_file()
+
+
+def test_install_project_missing_pyproject(tmp_path, capsys):
+    empty = tmp_path / "no-config"
+    empty.mkdir()
+    dest = tmp_path / "skills"
+
+    rc = cli.main(["install", "--project", str(empty), "--dest", str(dest)])
+
+    assert rc == 2
+    assert "no pyproject.toml" in capsys.readouterr().err
 
 
 def test_build_all_discovered(tmp_path, make_skill):
