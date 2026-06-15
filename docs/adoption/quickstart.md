@@ -220,6 +220,51 @@ if __name__ == "__main__":  # pragma: NO COVER
 The `rolling_re` here must match the `rolling_prefix` you record in
 `pyproject.toml` ([Step 4](#step-4-pyprojecttoml)).
 
+### Document the shim in `SKILL.md`
+
+The shim is only discoverable if `SKILL.md` mentions it. Append a short
+**`## Managing this skill`** epilogue so an agent (or human) reading the
+installed skill knows the self-management commands exist. This is the exemplar
+to copy into `skills/my-skill/SKILL.md` — adjust the wording, but keep the
+`##` heading and the reference to `scripts/skill_versions.py`:
+
+```markdown
+## Managing this skill
+
+This skill can manage its own installed copy via the bundled
+`scripts/skill_versions.py` helper. Run it with `uv` (which provisions its one
+dependency automatically):
+
+- **list** published versions, newest first, with the installed copy and the
+  current `latest` pointer marked:
+
+      uv run scripts/skill_versions.py list
+
+- **diff** the installed copy against a published version (default `latest`;
+  pass two tags to compare them with each other instead):
+
+      uv run scripts/skill_versions.py diff
+
+- **upgrade** the installed copy in place to a published version (default
+  `latest`), so files deleted upstream do not linger:
+
+      uv run scripts/skill_versions.py upgrade
+
+Network access to `github.com` is required; set `GITHUB_TOKEN` or `GH_TOKEN`
+to raise the API rate limit.
+```
+
+!!! note "Installing into a Soliplex stack"
+    When this skill is installed into a Soliplex stack with
+    [`soliplex-skills install --defang`](../mechanisms/installation.md#the-install-cli-command),
+    the installer removes `scripts/skill_versions.py` and rewrites this
+    `##` section to a short note — it locates the section by finding the
+    `##` heading whose body mentions `skill_versions.py`. A room agent cannot
+    drive the self-management commands, so they are stripped rather than left
+    dangling; the copy is then updated from the outside by re-running the
+    installer. Keeping the heading and the `scripts/skill_versions.py`
+    reference is what lets the installer find and defang this section.
+
 ## Step 2 — the build script
 
 `scripts/build_skill.py` is a thin wrapper over
