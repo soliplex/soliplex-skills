@@ -5,12 +5,15 @@ The installed console script. It dispatches:
 * ``list``    -- published versions of a skill (see :mod:`.versions`)
 * ``diff``    -- installed skill vs. a published version
 * ``upgrade`` -- install a published version in place
-* ``install`` -- first-time install of a published skill into a stack,
-  optionally defanged (see :mod:`.install`)
+* ``download`` -- download + extract a published skill to a local directory
+  (see :mod:`.install`)
+* ``install`` -- install a skill into a stack, optionally defanged, from a
+  published release or a local ``--source-dir`` (see :mod:`.install`)
 * ``build``   -- assemble/stamp/validate a skill into ``dist/``
   (see :mod:`.build`)
 
-The ``list``/``diff``/``upgrade``/``install`` commands read each skill's
+The ``list``/``diff``/``upgrade``/``install``/``download`` commands read each
+skill's
 :class:`~soliplex_skills.versions.SkillSpec` from a ``[tool.soliplex-skills]``
 stanza in ``pyproject.toml`` (see :mod:`.config`).
 """
@@ -92,24 +95,46 @@ exit status:
 """
 
 _INSTALL_DESCRIPTION = """\
-Download a published skill and install it under --dest.
+Install a skill under --dest, from a published release or a local copy.
 
-The skill lands in <dest>/<name>/. TARGET is a tag or 'latest' (the
-default, resolved via the skill's pointer manifest); the download's
-sha256 is verified against the manifest when known. It is extracted to
-a temporary directory and then installed over any existing copy --
-directories removed first -- so files deleted upstream do not linger.
-An existing copy whose source_commit already matches TARGET is left
-untouched unless --force is given. With --defang the bundled
-scripts/skill_versions.py self-management helper and the SKILL.md
-section documenting it are stripped, so the copy is safe to run inside
-a Soliplex room agent. --dry-run reports the plan without writing
-anything.\
+The skill lands in <dest>/<name>/. By default it is downloaded: TARGET
+is a tag or 'latest' (resolved via the skill's pointer manifest) and
+the download's sha256 is verified against the manifest when known.
+Pass --source-dir instead to install an already-extracted local copy
+(offline / development); it is validated against the agent-skills spec
+and the source directory is never modified. The skill is always
+installed under its own name (the validator requires the directory name
+to match). The skill is installed over any existing copy -- directories
+removed first
+-- so files deleted upstream do not linger. An existing copy whose
+source_commit already matches the target is left untouched unless
+--force is given. With --defang the bundled scripts/skill_versions.py
+self-management helper and the SKILL.md section documenting it are
+stripped, so the copy is safe to run inside a Soliplex room agent.
+--dry-run reports the plan without writing anything (and, for a
+download, without fetching the asset).\
 """
 
 _INSTALL_EPILOG = """\
 exit status:
   0  installed, upgraded, or already up to date (a no-op)
+  2  invalid invocation, or invalid skill configuration\
+"""
+
+_DOWNLOAD_DESCRIPTION = """\
+Download + extract a published skill to a local directory.
+
+The skill tree lands in <dest>/<name>/. TARGET is a tag or 'latest'
+(the default, resolved via the skill's pointer manifest); the
+download's sha256 is verified against the manifest when known. A
+non-empty target directory is left untouched unless --force is given.
+Nothing is defanged -- this is the raw published artifact, ready to
+feed back to 'install --source-dir <dest>/<name>'.\
+"""
+
+_DOWNLOAD_EPILOG = """\
+exit status:
+  0  downloaded
   2  invalid skill configuration\
 """
 
@@ -238,23 +263,54 @@ _INSTALL_MESSAGES = {
 }
 
 
-def _cmd_install(args: argparse.Namespace) -> int:
+def _cmd_download(args: argparse.Namespace) -> int:
     spec = _published_from_spec(_resolve_spec(args))
     version = None if args.target == "latest" else args.target
-    skill_root, status = install.install_skill(
-        spec,
-        version,
-        args.dest,
-        installed_by=args.installed_by,
-        defang=args.defang,
-        force=args.force,
-        dry_run=args.dry_run,
-    )
-    if args.dry_run:
-        print(f"Would install {spec.name} into {skill_root}.")
+    try:
+        root = install.download_skill(
+            spec, version, args.dest, force=args.force
+        )
+    except install.DestinationNotEmpty as exc:
+        print(f"soliplex-skills: error: {exc}", file=sys.stderr)
+        return 2
+    print(f"Downloaded {spec.name} to {root}.")
+    return 0
+
+
+def _cmd_install(args: argparse.Namespace) -> int:
+    if args.source_dir is not None:
+        if args.skill or args.project or args.pyproject:
+            print(
+                "soliplex-skills: error: --source-dir cannot be combined with "
+                "a published-skill selector (--skill/--project/--pyproject).",
+                file=sys.stderr,
+            )
+            return 2
+        skill_root, status = install.install_skill_from(
+            args.source_dir,
+            args.dest,
+            installed_by=args.installed_by,
+            defang=args.defang,
+            force=args.force,
+            dry_run=args.dry_run,
+        )
     else:
-        message = _INSTALL_MESSAGES[status]
-        print(message.format(name=spec.name, root=skill_root))
+        spec = _published_from_spec(_resolve_spec(args))
+        version = None if args.target == "latest" else args.target
+        skill_root, status = install.install_skill(
+            spec,
+            version,
+            args.dest,
+            installed_by=args.installed_by,
+            defang=args.defang,
+            force=args.force,
+            dry_run=args.dry_run,
+        )
+    name = skill_root.name
+    if args.dry_run:
+        print(f"Would install {name} into {skill_root}.")
+    else:
+        print(_INSTALL_MESSAGES[status].format(name=name, root=skill_root))
     return 0
 
 
@@ -388,6 +444,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Directory the skill is installed under, as <dest>/<name>/.",
     )
     p_install.add_argument(
+        "--source-dir",
+        type=pathlib.Path,
+        help="Install from this local skill directory (validated against the "
+        "agent-skills spec) instead of downloading; mutually exclusive with "
+        "the published-skill selectors.",
+    )
+    p_install.add_argument(
         "target",
         nargs="?",
         default="latest",
@@ -417,6 +480,33 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Report what would be installed without writing anything.",
     )
     p_install.set_defaults(func=_cmd_install)
+
+    p_download = sub.add_parser(
+        "download",
+        help="Download + extract a published skill to a local directory.",
+        description=_DOWNLOAD_DESCRIPTION,
+        epilog=_DOWNLOAD_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    _add_spec_args(p_download)
+    p_download.add_argument(
+        "--dest",
+        required=True,
+        type=pathlib.Path,
+        help="Directory the skill is downloaded into, as <dest>/<name>/.",
+    )
+    p_download.add_argument(
+        "target",
+        nargs="?",
+        default="latest",
+        help="Published version: a tag, or 'latest' (the default).",
+    )
+    p_download.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace the target directory even when it is not empty.",
+    )
+    p_download.set_defaults(func=_cmd_download)
 
     p_build = sub.add_parser(
         "build",
@@ -469,7 +559,7 @@ def main(argv: abc.Sequence[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except config.SkillConfigError as exc:
+    except (config.SkillConfigError, install.SourceInvalid) as exc:
         print(f"soliplex-skills: error: {exc}", file=sys.stderr)
         return 2
 

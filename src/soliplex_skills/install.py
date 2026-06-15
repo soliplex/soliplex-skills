@@ -18,6 +18,8 @@ import pathlib
 import re
 import shutil
 
+import skills_ref
+
 from soliplex_skills import _archive
 from soliplex_skills import metadata
 from soliplex_skills import releases
@@ -133,15 +135,37 @@ class PublishedSkill:
         )
 
 
+class DestinationNotEmpty(ValueError):
+    """A download target directory already exists and is not empty."""
+
+    def __init__(self, target: pathlib.Path):
+        self.target = target
+        super().__init__(f"{target} is not empty; pass force to replace it")
+
+
 def download_skill(
-    spec: PublishedSkill, version: str | None, dest: pathlib.Path
+    spec: PublishedSkill,
+    version: str | None,
+    dest: pathlib.Path,
+    *,
+    force: bool = False,
 ) -> pathlib.Path:
-    """Download + extract *spec* into *dest*; return the extracted skill root.
+    """Download *spec* and place its skill tree at ``<dest>/<name>/``.
 
     When *version* is ``None`` the skill's ``latest`` pointer is read (and its
     recorded sha256 verified); an explicit tag builds the asset URL by name.
-    The returned path is the directory containing ``SKILL.md``.
+    The asset is extracted in a scratch directory and the skill root copied to
+    ``<dest>/<spec.name>/`` (the returned path).
+
+    A **non-empty** target directory is left untouched and
+    :class:`DestinationNotEmpty` is raised unless *force* is true; an empty or
+    absent target is replaced / created. The check happens before any network
+    access, so a refused download touches neither the network nor *dest*.
     """
+    target = dest / spec.name
+    if target.is_dir() and any(target.iterdir()) and not force:
+        raise DestinationNotEmpty(target)
+
     if version is None:
         pointer = releases.read_pointer(spec.pointer_url())
         if pointer is None:
@@ -150,10 +174,16 @@ def download_skill(
     else:
         asset_url, sha256 = spec.asset_url(version), None
 
-    extract_dir = _archive.download_and_extract(
-        asset_url, dest, expected_sha256=sha256
-    )
-    return _archive.find_skill_root(extract_dir)
+    with _archive.temp_dest() as scratch:
+        extract_dir = _archive.download_and_extract(
+            asset_url, scratch, expected_sha256=sha256
+        )
+        root = _archive.find_skill_root(extract_dir)
+        if target.exists():
+            shutil.rmtree(target)
+        dest.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(root, target)
+    return target
 
 
 def defang_skill(
@@ -216,6 +246,95 @@ class InstallStatus(enum.StrEnum):
     UPGRADED = "upgraded"
 
 
+class SourceInvalid(ValueError):
+    """An invalid skill was handed to :func:`install_skill_from`."""
+
+    def __init__(self, source_root: pathlib.Path, errors: list[str]):
+        self.source_root = source_root
+        self.errors = errors
+        joined = "\n".join(errors)
+        super().__init__(f"{source_root} is not a valid skill:\n{joined}")
+
+
+def install_skill_from(
+    source_root: pathlib.Path,
+    dest: pathlib.Path,
+    *,
+    installed_by: str,
+    defang: bool = True,
+    force: bool = False,
+    dry_run: bool = False,
+) -> tuple[pathlib.Path, InstallStatus]:
+    """Install an already-extracted *source_root* skill tree under *dest*.
+
+    *source_root* is a directory containing ``SKILL.md`` (a published tarball
+    extracted by :func:`download_skill`, or a local working copy). It is
+    **validated** against the agent-skills spec first
+    (:class:`SourceInvalid` on failure) and installed over
+    ``<dest>/<name>/``, where *name* is the skill's own ``name`` -- the
+    validator guarantees it equals the source directory's name, so the install
+    cannot produce a spec-invalid directory. Use this directly to install from
+    a local directory (offline / development), or via :func:`install_skill` for
+    a published one.
+
+    Returns ``(skill_root, status)`` as :func:`install_skill` does. When the
+    target exists and its ``metadata.source_commit`` already matches the
+    source's, the skill is returned :attr:`~InstallStatus.UNCHANGED` unless
+    *force* is true. *dry_run* reports the plan without writing anything.
+
+    *source_root* is never modified: when *defang* is true (the default), the
+    self-management helper is stripped from the installed *copy*, so a local
+    source directory is left byte-for-byte intact.
+    """
+    errors = skills_ref.validate(source_root)
+    if errors:
+        raise SourceInvalid(source_root, errors)
+
+    skill_root = dest / source_root.name
+    installed_commit = None
+    if skill_root.exists():
+        installed_commit = metadata.read_source_commit(skill_root / "SKILL.md")
+    source_commit = metadata.read_source_commit(source_root / "SKILL.md")
+
+    if (
+        skill_root.exists()
+        and source_commit
+        and source_commit == installed_commit
+        and not force
+    ):
+        return skill_root, InstallStatus.UNCHANGED
+
+    upgrading = skill_root.exists()
+    status = InstallStatus.UPGRADED if upgrading else InstallStatus.ADDED
+    if dry_run:
+        return skill_root, status
+
+    if upgrading:
+        _archive.install_over(source_root, skill_root)
+    else:
+        shutil.copytree(source_root, skill_root)
+    if defang:
+        defang_skill(skill_root, installed_by=installed_by)
+    return skill_root, status
+
+
+def _resolve_target_commit(
+    spec: PublishedSkill, version: str | None
+) -> str | None:
+    """The published target's ``source_commit`` without downloading the asset.
+
+    Reads it from the ``latest`` pointer manifest (a small JSON) when *version*
+    is ``None``; an explicit tag carries no such pointer, so the commit is
+    unknowable without pulling the asset and ``None`` is returned.
+    """
+    if version is not None:
+        return None
+    pointer = releases.read_pointer(spec.pointer_url())
+    if pointer is None:
+        raise PointerUnavailable(spec.pointer_tag)
+    return pointer.source_commit
+
+
 def install_skill(
     spec: PublishedSkill,
     version: str | None,
@@ -228,44 +347,49 @@ def install_skill(
 ) -> tuple[pathlib.Path, InstallStatus]:
     """Download *spec* and install it under *dest*.
 
-    The skill is extracted into a temporary directory, then installed over
-    ``<dest>/<skill-name>/`` so files deleted upstream do not linger. When
-    *defang* is true (the default), :func:`defang_skill` is run on the skill
-    root before it is moved into place.
+    The skill is downloaded + extracted into a temporary directory, then
+    installed over ``<dest>/<skill-name>/`` via
+    :func:`install_skill_from` (which defangs the installed copy when
+    *defang* is true).
 
     Returns ``(skill_root, status)`` where *status* is one of
     :attr:`InstallStatus.ADDED`, :attr:`InstallStatus.UNCHANGED`, or
     :attr:`InstallStatus.UPGRADED`. An existing skill whose
     ``metadata.source_commit`` already matches the published target is
-    returned unchanged unless *force* is true. *dry_run* reports the plan
-    without writing anything.
+    returned unchanged unless *force* is true.
+
+    *dry_run* reports the plan **without downloading the asset**: it resolves
+    the target commit from the ``latest`` pointer (so the status is exact),
+    but an explicit tag carries no pointer, so a present skill is reported
+    :attr:`~InstallStatus.UPGRADED` (``UNCHANGED`` can't be proven without the
+    asset). For a fully offline, exact dry-run, use
+    :func:`install_skill_from` with ``dry_run=True``.
     """
     skill_root = dest / spec.name
-    installed_commit = None
-    if skill_root.exists():
-        installed_commit = metadata.read_source_commit(skill_root / "SKILL.md")
-
-    with _archive.temp_dest() as tmp:
-        new_root = download_skill(spec, version, tmp)
-        new_commit = metadata.read_source_commit(new_root / "SKILL.md")
-
+    if dry_run:
+        installed_commit = None
+        if skill_root.exists():
+            installed_commit = metadata.read_source_commit(
+                skill_root / "SKILL.md"
+            )
+        target_commit = _resolve_target_commit(spec, version)
         if (
             skill_root.exists()
-            and new_commit
-            and new_commit == installed_commit
+            and target_commit
+            and target_commit == installed_commit
             and not force
         ):
             return skill_root, InstallStatus.UNCHANGED
-
-        if defang:
-            defang_skill(new_root, installed_by=installed_by)
-
-        if dry_run:
-            return skill_root, InstallStatus.UNCHANGED
-
         if skill_root.exists():
-            _archive.install_over(new_root, skill_root)
             return skill_root, InstallStatus.UPGRADED
-
-        shutil.copytree(new_root, skill_root)
         return skill_root, InstallStatus.ADDED
+
+    with _archive.temp_dest() as tmp:
+        new_root = download_skill(spec, version, tmp)
+        return install_skill_from(
+            new_root,
+            dest,
+            installed_by=installed_by,
+            defang=defang,
+            force=force,
+        )

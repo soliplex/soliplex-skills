@@ -75,7 +75,13 @@ import versions` then `versions.SkillVersions(...)`). The headline types are:
 | `PublishedSkill(name, owner, repo, asset_tarball, pointer_tag, pointer_manifest="latest.json")` | a release-published skill spec |
 | `PublishedSkill.download_base` | base URL for the repo's release-download assets |
 | `PublishedSkill.asset_url(tag)` / `.pointer_url()` | asset / pointer-manifest URLs |
-| `download_skill(spec, version, dest)` | resolve → download → verify → extract; returns the skill root |
+| `download_skill(spec, version, dest, *, force=False)` | resolve → download → verify → extract; places the skill cleanly at `<dest>/<name>/` (raises `DestinationNotEmpty` on a non-empty target unless `force`) |
+| `install_skill(spec, version, dest, *, installed_by, defang=True, force=False, dry_run=False)` | download a published skill and install it under `dest/<name>`; `dry_run` reports the plan without fetching the asset |
+| `install_skill_from(source_root, dest, *, installed_by, defang=True, force=False, dry_run=False)` | install an already-extracted / local skill tree (offline / dev); validates the source (under its own name), never modifies it |
+| `defang_skill(skill_dir, *, installed_by, note=None)` | strip the self-management helper so the copy is safe inside a room agent |
+| `InstallStatus` | `ADDED` / `UNCHANGED` / `UPGRADED`, returned by `install_skill` / `install_skill_from` |
+| `SourceInvalid` | raised by `install_skill_from` when the source fails agent-skills validation |
+| `DestinationNotEmpty` | raised by `download_skill` when the target directory is non-empty and `force` is not set |
 
 ## `rooms` — add a room to a Soliplex stack
 
@@ -107,4 +113,4 @@ comments and layout are preserved.
 
 | Member | Purpose |
 | --- | --- |
-| `main(argv=None)` | dispatch `list` / `diff` / `upgrade` / `build`; returns an exit code. Installed as the `soliplex-skills` console script. |
+| `main(argv=None)` | dispatch `list` / `diff` / `upgrade` / `install` / `download` / `build`; returns an exit code. Installed as the `soliplex-skills` console script. `install` accepts `--source-dir` for a local install; `download` fetches a published skill to a local directory. |
