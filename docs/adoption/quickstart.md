@@ -60,7 +60,7 @@ shared library — this file is [a thin shim](../mechanisms/versions-cli.md#libr
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["soliplex-skills>=0.3"]
+# dependencies = ["soliplex-skills>=0.5"]
 # ///
 """List, diff, and upgrade published ``my-skill`` versions.
 
@@ -278,7 +278,7 @@ gitignored.
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["soliplex-skills>=0.3"]
+# dependencies = ["soliplex-skills>=0.5"]
 # ///
 """Assemble and validate the my-skill skill into dist/.
 
@@ -559,7 +559,7 @@ skill validator, transitively):
 dev = [
     "pytest",
     "ruff",
-    "soliplex-skills >= 0.3",
+    "soliplex-skills >= 0.5",
 ]
 ```
 
