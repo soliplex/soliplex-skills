@@ -655,10 +655,43 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#installing-into-a-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Installing into a stack
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#defanging-a-stack-installed-skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Defanging a stack-installed skill
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#api" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         API
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-install-cli-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The <code>install</code> CLI command
       </span>
     </span>
   </a>
@@ -909,10 +942,43 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#installing-into-a-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Installing into a stack
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#defanging-a-stack-installed-skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Defanging a stack-installed skill
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#api" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         API
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-install-cli-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The <code>install</code> CLI command
       </span>
     </span>
   </a>
@@ -1005,6 +1071,10 @@
 <em>already</em> on disk, this mechanism covers the <strong>first-time install</strong>: resolving
 a published skill to an asset, downloading and verifying it, and extracting its
 skill root.</p>
+<p>On top of that low-level fetch it offers <strong>installing a skill into a Soliplex
+stack</strong>: idempotently placing it under a destination directory (add / upgrade /
+no-op), and optionally <em>defanging</em> it — stripping the bundled self-management
+helper — so the copy is safe to run inside a room agent.</p>
 <h2 id="resolving-and-downloading">Resolving and downloading<a class="headerlink" href="#resolving-and-downloading" title="Permanent link">&para;</a></h2>
 <p>A skill is identified by a small spec (owner, repo, asset tarball, pointer
 tag). To install it:</p>
@@ -1018,6 +1088,42 @@ tag). To install it:</p>
 <li><strong>Verify</strong> its <code>sha256</code> against the manifest when one is known.</li>
 <li><strong>Extract</strong> and return the skill root — the directory containing <code>SKILL.md</code>.</li>
 </ol>
+<h2 id="installing-into-a-stack">Installing into a stack<a class="headerlink" href="#installing-into-a-stack" title="Permanent link">&para;</a></h2>
+<p><code>install_skill</code> builds on <code>download_skill</code> to place a skill under a destination
+directory at <code>&lt;dest&gt;/&lt;skill-name&gt;/</code>, idempotently:</p>
+<ol>
+<li><strong>Extract to a temp dir.</strong> The skill is downloaded and unpacked into a
+   temporary directory first, never directly over the live copy.</li>
+<li><strong>Short-circuit if current.</strong> If a copy already exists and its
+   <code>SKILL.md</code> <code>source_commit</code> matches the published target, it is a <strong>no-op</strong>
+   (<code>UNCHANGED</code>) unless <code>force=True</code>.</li>
+<li><strong>Defang</strong> (optional) the temp copy — see below.</li>
+<li><strong>Install over</strong> any existing copy in place (directories removed first, so
+   files deleted upstream do not linger), or copy it in fresh.</li>
+</ol>
+<p>It returns <code>(skill_root, status)</code>, where <code>status</code> is an <strong><code>InstallStatus</code></strong>:
+<code>ADDED</code> (no copy was there), <code>UPGRADED</code> (replaced an existing copy), or
+<code>UNCHANGED</code> (no-op). <code>dry_run=True</code> reports the plan and writes nothing
+(returning <code>UNCHANGED</code>).</p>
+<h2 id="defanging-a-stack-installed-skill">Defanging a stack-installed skill<a class="headerlink" href="#defanging-a-stack-installed-skill" title="Permanent link">&para;</a></h2>
+<p>A skill bundles a <code>scripts/skill_versions.py</code>
+<a href="../versions-cli/">self-management helper</a>, but a copy running inside a room
+agent cannot usefully drive it — the room agent is not a coding agent and the
+copy is updated from the <em>outside</em>. <code>defang_skill</code> makes such a copy safe:</p>
+<ul>
+<li>it removes <code>scripts/skill_versions.py</code> (and any <code>scripts/__pycache__</code>,
+  then <code>scripts/</code> itself if now empty);</li>
+<li>it rewrites the <code>SKILL.md</code> self-management section to a short note. The
+  section is located by scanning the <code>##</code> headings and finding the one whose
+  body mentions <code>skill_versions.py</code> (the heading is preserved); if no section
+  matches, only the script files are removed and the markdown is left untouched.</li>
+</ul>
+<p>The replacement text is built by <code>format_defang_note(heading, installed_by=…)</code>;
+callers can override it with the <code>note</code> argument. This is the counterpart to
+the <a href="../../adoption/quickstart/#document-the-shim-in-skillmd"><code>## Managing this skill</code> epilogue</a>
+a skill author appends to <code>SKILL.md</code> — write that section keeping its <code>##</code>
+heading and <code>skill_versions.py</code> reference, and the installer can find and
+defang it.</p>
 <h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
 <p>The <a href="../../reference/api/"><code>install</code> module</a>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">soliplex_skills</span><span class="w"> </span><span class="kn">import</span> <span class="n">install</span>
@@ -1030,22 +1136,55 @@ tag). To install it:</p>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">pointer_tag</span><span class="o">=</span><span class="s2">&quot;docs-latest&quot;</span><span class="p">,</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># install.download_skill(docs, version=None, dest=…) -&gt; Path to the skill root</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Low-level: resolve → download → verify → extract; returns the skill root.</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">root</span> <span class="o">=</span> <span class="n">install</span><span class="o">.</span><span class="n">download_skill</span><span class="p">(</span><span class="n">docs</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="n">tmp</span><span class="p">)</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="c1"># High-level: install into a stack at &lt;dest&gt;/soliplex-docs/, defanged.</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">root</span><span class="p">,</span> <span class="n">status</span> <span class="o">=</span> <span class="n">install</span><span class="o">.</span><span class="n">install_skill</span><span class="p">(</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">docs</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="n">skills_dir</span><span class="p">,</span> <span class="n">installed_by</span><span class="o">=</span><span class="s2">&quot;my-installer&quot;</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="p">)</span>
 </span></code></pre></div>
 <ul>
 <li><strong><code>PublishedSkill</code></strong> — the spec, with a <code>download_base</code> property for the
   repo's release-download URLs.</li>
 <li><strong><code>download_skill(spec, version, dest)</code></strong> — resolve → download → verify →
   extract; returns the extracted skill root.</li>
+<li><strong><code>install_skill(spec, version, dest, *, installed_by, defang=True,
+  force=False, dry_run=False)</code></strong> — install into <code>&lt;dest&gt;/&lt;name&gt;/</code>; returns
+  <code>(skill_root, InstallStatus)</code>. Note <code>defang</code> <strong>defaults to <code>True</code></strong> here (the
+  <code>install</code> CLI command defaults it off — see below).</li>
+<li><strong><code>defang_skill(skill_dir, *, installed_by, note=None)</code></strong> — strip the helper
+  and rewrite the self-management section in place.</li>
+<li><strong><code>format_defang_note(heading, *, installed_by)</code></strong> — render the default
+  defang note.</li>
+<li><strong><code>InstallStatus</code></strong> — <code>ADDED</code> / <code>UPGRADED</code> / <code>UNCHANGED</code>.</li>
 </ul>
+<h2 id="the-install-cli-command">The <code>install</code> CLI command<a class="headerlink" href="#the-install-cli-command" title="Permanent link">&para;</a></h2>
+<p><code>install</code> is also available from the console script, reading the skill's
+<a href="../versions-cli/#cli-configuration"><code>[tool.soliplex-skills]</code> stanza</a> so the
+constants need not be repeated:</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="gp"># </span>Install<span class="w"> </span>latest<span class="w"> </span>into<span class="w"> </span>./skills/&lt;name&gt;/<span class="w"> </span><span class="o">(</span>keeps<span class="w"> </span>the<span class="w"> </span>helper<span class="w"> </span>by<span class="w"> </span>default<span class="o">)</span>:
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">soliplex-skills install --skill soliplex-docs --dest skills</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="gp"># </span>Defang<span class="w"> </span>on<span class="w"> </span>the<span class="w"> </span>way<span class="w"> </span><span class="k">in</span>,<span class="w"> </span>recording<span class="w"> </span>who<span class="w"> </span>installed<span class="w"> </span>it,<span class="w"> </span>and<span class="w"> </span>preview<span class="w"> </span>first:
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="go">soliplex-skills install --skill soliplex-docs --dest skills --defang \</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="go">    --installed-by my-installer --dry-run</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="gp"># </span>Reinstall<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>tag<span class="w"> </span>even<span class="w"> </span><span class="k">if</span><span class="w"> </span>the<span class="w"> </span>installed<span class="w"> </span>commit<span class="w"> </span>already<span class="w"> </span>matches:
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="go">soliplex-skills install --skill soliplex-docs --dest skills v0.68 --force</span>
+</span></code></pre></div>
+<p>Unlike the <a href="#api"><code>install_skill</code> API</a>, the CLI's <strong><code>--defang</code> defaults to
+off</strong> — pass it explicitly to strip the helper. <code>--installed-by</code> (default
+<code>soliplex-skills</code>) is only used by the defang note. <code>--force</code> reinstalls even
+when the commit matches; <code>--dry-run</code> reports the plan without writing.</p>
 <div class="admonition note">
 <p class="admonition-title">Out of scope (for now)</p>
-<p>The <code>soliplex-concierge</code> installer does more than fetch a skill — it
-<em>wires</em> it into a target Soliplex stack by surgically editing
-<code>pyproject.toml</code>, <code>installation.yaml</code>, and room configs. That
-stack-editing logic is <strong>intentionally left out</strong> of this initial library;
-it belongs in a later, installer-specific module built on top of
-<code>download_skill</code>.</p>
+<p>Even <code>install_skill</code> only <em>places and defangs</em> a skill — it does not
+<strong>wire</strong> it into a target Soliplex stack by editing <code>pyproject.toml</code>,
+<code>installation.yaml</code>, and room configs, as the <code>soliplex-concierge</code>
+installer does. That stack-editing logic is <strong>intentionally left out</strong> of
+this library; it belongs in a later, installer-specific module built on top
+of these primitives.</p>
 </div>
 
 
