@@ -9,6 +9,8 @@ Soliplex projects:
 - `soliplex-concierge`: `soliplex-concierge-installer`,
   `soliplex-concierge.room`, and `soliplex-concierge.admin` skills.
 
+📖 **Full documentation:** <https://soliplex.github.io/soliplex-skills/>
+
 ## Features
 
 - Rolling releases of skills as artifacts of Github auto-generated
