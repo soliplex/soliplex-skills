@@ -508,7 +508,8 @@ def test_install_help_documents_output_and_exit_codes(capsys):
 
     out = capsys.readouterr().out
     assert exc.value.code == 0
-    assert "install it under --dest" in out  # explains the effect
+    assert "Install a skill under --dest" in out  # explains the effect
+    assert "--source-dir" in out  # documents the local-source option
     assert "--defang" in out  # documents the defang option
     assert "exit status:" in out  # documents the return codes
     assert "0  installed, upgraded, or already up to date" in out
@@ -570,6 +571,140 @@ def test_install_project_missing_pyproject(tmp_path, capsys):
 
     assert rc == 2
     assert "no pyproject.toml" in capsys.readouterr().err
+
+
+def test_install_source_dir_installs_and_defangs(tmp_path, make_skill, capsys):
+    src = make_skill(
+        "soliplex-docs",
+        commit="bbbbbbb",
+        files={"scripts/skill_versions.py": "# helper\n"},
+        parent=tmp_path / "src",
+    )
+    dest = tmp_path / "skills"
+
+    rc = cli.main(
+        [
+            "install",
+            "--source-dir",
+            str(src),
+            "--dest",
+            str(dest),
+            "--defang",
+        ]
+    )
+
+    assert rc == 0
+    assert "Installed soliplex-docs" in capsys.readouterr().out
+    root = dest / "soliplex-docs"
+    assert (root / "SKILL.md").is_file()
+    assert not (root / "scripts" / "skill_versions.py").exists()
+
+
+def test_install_source_dir_rejects_invalid_skill(tmp_path, capsys):
+    src = tmp_path / "wrong-name"
+    src.mkdir()
+    (src / "SKILL.md").write_text(
+        '---\nname: soliplex-docs\ndescription: "A skill."\n---\n\n# Title\n'
+    )
+    dest = tmp_path / "skills"
+
+    rc = cli.main(["install", "--source-dir", str(src), "--dest", str(dest)])
+
+    assert rc == 2
+    assert "not a valid skill" in capsys.readouterr().err
+
+
+def test_install_source_dir_conflicts_with_selector(tmp_path, capsys):
+    dest = tmp_path / "skills"
+
+    rc = cli.main(
+        [
+            "install",
+            "--source-dir",
+            str(tmp_path / "src"),
+            "--skill",
+            "soliplex-docs",
+            "--dest",
+            str(dest),
+        ]
+    )
+
+    assert rc == 2
+    assert "cannot be combined" in capsys.readouterr().err
+
+
+def test_download_writes_skill_dir(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    pp = _write_pyproject(tmp_path, _DOCS)
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        _serve(_publish(make_skill, make_tarball, tmp_path, commit="bbbbbbb")),
+    )
+    dl = tmp_path / "dl"
+
+    rc = cli.main(["download", "--pyproject", str(pp), "--dest", str(dl)])
+
+    assert rc == 0
+    assert "Downloaded soliplex-docs" in capsys.readouterr().out
+    assert (dl / "soliplex-docs" / "SKILL.md").is_file()
+    assert (dl / "soliplex-docs" / "references" / "a.md").read_text() == "hi\n"
+
+
+def test_download_force_replaces_existing_dir(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    pp = _write_pyproject(tmp_path, _DOCS)
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        _serve(_publish(make_skill, make_tarball, tmp_path, commit="bbbbbbb")),
+    )
+    dl = tmp_path / "dl"
+    stale = dl / "soliplex-docs"
+    stale.mkdir(parents=True)
+    (stale / "stale.txt").write_text("old\n")
+
+    rc = cli.main(
+        ["download", "--pyproject", str(pp), "--dest", str(dl), "--force"]
+    )
+
+    assert rc == 0
+    assert not (stale / "stale.txt").exists()
+    assert (stale / "SKILL.md").is_file()
+
+
+def test_download_refuses_nonempty_dir_without_force(
+    tmp_path, monkeypatch, make_skill, make_tarball, capsys
+):
+    pp = _write_pyproject(tmp_path, _DOCS)
+    monkeypatch.setattr(
+        releases,
+        "fetch",
+        _serve(_publish(make_skill, make_tarball, tmp_path, commit="bbbbbbb")),
+    )
+    dl = tmp_path / "dl"
+    existing = dl / "soliplex-docs"
+    existing.mkdir(parents=True)
+    (existing / "keep.txt").write_text("mine\n")
+
+    rc = cli.main(["download", "--pyproject", str(pp), "--dest", str(dl)])
+
+    assert rc == 2
+    assert "is not empty" in capsys.readouterr().err
+    assert (existing / "keep.txt").read_text() == "mine\n"
+
+
+def test_download_help_documents_output_and_exit_codes(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["download", "--help"])
+
+    out = capsys.readouterr().out
+    assert exc.value.code == 0
+    assert "Download + extract" in out  # explains the effect
+    assert "exit status:" in out  # documents the return codes
+    assert "0  downloaded" in out
 
 
 def test_build_all_discovered(tmp_path, make_skill):

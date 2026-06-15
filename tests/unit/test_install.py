@@ -164,6 +164,38 @@ def test_download_skill_checksum_mismatch(
         install.download_skill(_spec(), None, dest)
 
 
+def test_download_skill_refuses_nonempty_target(
+    monkeypatch, tmp_path, make_skill, make_tarball
+):
+    monkeypatch.setattr(releases, "fetch", _serve({}))  # never reached
+    dest = tmp_path / "dl"
+    target = dest / _SKILL_NAME
+    target.mkdir(parents=True)
+    (target / "keep.txt").write_text("mine\n")
+
+    with pytest.raises(install.DestinationNotEmpty):
+        install.download_skill(_spec(), None, dest)
+
+    assert (target / "keep.txt").read_text() == "mine\n"
+
+
+def test_download_skill_force_replaces_nonempty_target(
+    monkeypatch, tmp_path, make_skill, make_tarball
+):
+    mapping = _publish(make_skill, make_tarball, tmp_path, commit="bbbbbbb")
+    monkeypatch.setattr(releases, "fetch", _serve(mapping))
+    dest = tmp_path / "dl"
+    target = dest / _SKILL_NAME
+    target.mkdir(parents=True)
+    (target / "stale.txt").write_text("old\n")
+
+    root = install.download_skill(_spec(), None, dest, force=True)
+
+    assert root == target
+    assert not (target / "stale.txt").exists()
+    assert (root / "SKILL.md").is_file()
+
+
 def test_defang_skill_removes_helper_and_empty_scripts_dir(tmp_path):
     root = _skill_with_self_management(tmp_path)
 
@@ -460,7 +492,7 @@ def test_install_skill_force_reinstalls_same_commit(
     assert (root / "references" / "a.md").read_text() == "hi\n"
 
 
-def test_install_skill_dry_run_writes_nothing(
+def test_install_skill_dry_run_reports_upgrade_without_writing(
     monkeypatch, tmp_path, make_skill, make_tarball
 ):
     make_skill(
@@ -480,5 +512,229 @@ def test_install_skill_dry_run_writes_nothing(
         dry_run=True,
     )
 
+    assert status is install.InstallStatus.UPGRADED
+    assert (root / "references" / "a.md").read_text() == "old\n"
+
+
+def test_install_skill_dry_run_does_not_download_asset(
+    monkeypatch, tmp_path, make_skill, make_tarball
+):
+    mapping = _publish(make_skill, make_tarball, tmp_path, commit="bbbbbbb")
+    # Serve only the pointer manifest; fetching the asset would raise.
+    monkeypatch.setattr(
+        releases, "fetch", _serve({"latest.json": mapping["latest.json"]})
+    )
+    dest = tmp_path / "skills"
+    dest.mkdir()
+
+    root, status = install.install_skill(
+        _spec(), None, dest, installed_by=_INSTALLED_BY, dry_run=True
+    )
+
+    assert status is install.InstallStatus.ADDED
+    assert not root.exists()
+
+
+def test_install_skill_dry_run_unchanged_when_pointer_matches(
+    monkeypatch, tmp_path, make_skill, make_tarball
+):
+    make_skill(
+        _SKILL_NAME,
+        commit="bbbbbbb",
+        files={"references/a.md": "old\n"},
+        parent=tmp_path / "skills",
+    )
+    mapping = _publish(make_skill, make_tarball, tmp_path, commit="bbbbbbb")
+    monkeypatch.setattr(
+        releases, "fetch", _serve({"latest.json": mapping["latest.json"]})
+    )
+    dest = tmp_path / "skills"
+
+    root, status = install.install_skill(
+        _spec(), None, dest, installed_by=_INSTALLED_BY, dry_run=True
+    )
+
     assert status is install.InstallStatus.UNCHANGED
     assert (root / "references" / "a.md").read_text() == "old\n"
+
+
+def test_install_skill_dry_run_explicit_tag_reports_by_existence(
+    monkeypatch, tmp_path, make_skill
+):
+    make_skill(
+        _SKILL_NAME, commit="aaaaaaa", files={}, parent=tmp_path / "skills"
+    )
+    # An explicit tag carries no pointer, so nothing is fetched at all.
+    monkeypatch.setattr(releases, "fetch", _serve({}))
+    dest = tmp_path / "skills"
+
+    root, status = install.install_skill(
+        _spec(), "v0.68", dest, installed_by=_INSTALLED_BY, dry_run=True
+    )
+
+    assert status is install.InstallStatus.UPGRADED
+
+
+def test_install_skill_dry_run_pointer_unavailable(monkeypatch, tmp_path):
+    monkeypatch.setattr(releases, "fetch", _serve({}))
+    dest = tmp_path / "skills"
+    dest.mkdir()
+
+    with pytest.raises(versions.PointerUnavailable):
+        install.install_skill(
+            _spec(), None, dest, installed_by=_INSTALLED_BY, dry_run=True
+        )
+
+
+def test_install_skill_from_adds_and_defangs_by_default(tmp_path, make_skill):
+    src = make_skill(
+        _SKILL_NAME,
+        commit="bbbbbbb",
+        files={"scripts/skill_versions.py": "# helper\n"},
+        parent=tmp_path / "src",
+    )
+    dest = tmp_path / "skills"
+    dest.mkdir()
+
+    root, status = install.install_skill_from(
+        src, dest, installed_by=_INSTALLED_BY
+    )
+
+    assert status is install.InstallStatus.ADDED
+    assert root == dest / _SKILL_NAME
+    assert (root / "SKILL.md").is_file()
+    assert not (root / "scripts" / "skill_versions.py").exists()
+
+
+def test_install_skill_from_does_not_modify_source(tmp_path, make_skill):
+    src = make_skill(
+        _SKILL_NAME,
+        commit="bbbbbbb",
+        files={"scripts/skill_versions.py": "# helper\n"},
+        parent=tmp_path / "src",
+    )
+    dest = tmp_path / "skills"
+    dest.mkdir()
+
+    install.install_skill_from(src, dest, installed_by=_INSTALLED_BY)
+
+    assert (src / "scripts" / "skill_versions.py").read_text() == "# helper\n"
+
+
+def test_install_skill_from_no_defang_keeps_helper(tmp_path, make_skill):
+    src = make_skill(
+        _SKILL_NAME,
+        commit="bbbbbbb",
+        files={"scripts/skill_versions.py": "# helper\n"},
+        parent=tmp_path / "src",
+    )
+    dest = tmp_path / "skills"
+    dest.mkdir()
+
+    root, status = install.install_skill_from(
+        src, dest, installed_by=_INSTALLED_BY, defang=False
+    )
+
+    assert (root / "scripts" / "skill_versions.py").is_file()
+
+
+def test_install_skill_from_unchanged_when_commit_matches(
+    tmp_path, make_skill
+):
+    make_skill(
+        _SKILL_NAME,
+        commit="bbbbbbb",
+        files={"references/a.md": "old\n"},
+        parent=tmp_path / "skills",
+    )
+    src = make_skill(
+        _SKILL_NAME,
+        commit="bbbbbbb",
+        files={"references/a.md": "new\n"},
+        parent=tmp_path / "src",
+    )
+    dest = tmp_path / "skills"
+
+    root, status = install.install_skill_from(
+        src, dest, installed_by=_INSTALLED_BY
+    )
+
+    assert status is install.InstallStatus.UNCHANGED
+    assert (root / "references" / "a.md").read_text() == "old\n"
+
+
+def test_install_skill_from_upgrades_existing(tmp_path, make_skill):
+    make_skill(
+        _SKILL_NAME,
+        commit="aaaaaaa",
+        files={"references/a.md": "old\n"},
+        parent=tmp_path / "skills",
+    )
+    src = make_skill(
+        _SKILL_NAME,
+        commit="bbbbbbb",
+        files={"references/a.md": "new\n"},
+        parent=tmp_path / "src",
+    )
+    dest = tmp_path / "skills"
+
+    root, status = install.install_skill_from(
+        src, dest, installed_by=_INSTALLED_BY
+    )
+
+    assert status is install.InstallStatus.UPGRADED
+    assert (root / "references" / "a.md").read_text() == "new\n"
+
+
+def test_install_skill_from_force_reinstalls_same_commit(tmp_path, make_skill):
+    make_skill(
+        _SKILL_NAME,
+        commit="bbbbbbb",
+        files={"references/a.md": "old\n"},
+        parent=tmp_path / "skills",
+    )
+    src = make_skill(
+        _SKILL_NAME,
+        commit="bbbbbbb",
+        files={"references/a.md": "new\n"},
+        parent=tmp_path / "src",
+    )
+    dest = tmp_path / "skills"
+
+    root, status = install.install_skill_from(
+        src, dest, installed_by=_INSTALLED_BY, force=True
+    )
+
+    assert status is install.InstallStatus.UPGRADED
+    assert (root / "references" / "a.md").read_text() == "new\n"
+
+
+def test_install_skill_from_dry_run_writes_nothing(tmp_path, make_skill):
+    src = make_skill(
+        _SKILL_NAME,
+        commit="bbbbbbb",
+        files={"references/a.md": "hi\n"},
+        parent=tmp_path / "src",
+    )
+    dest = tmp_path / "skills"
+    dest.mkdir()
+
+    root, status = install.install_skill_from(
+        src, dest, installed_by=_INSTALLED_BY, dry_run=True
+    )
+
+    assert status is install.InstallStatus.ADDED
+    assert not root.exists()
+
+
+def test_install_skill_from_rejects_invalid_skill(tmp_path):
+    src = tmp_path / "wrong-name"
+    src.mkdir()
+    (src / "SKILL.md").write_text(
+        '---\nname: soliplex-docs\ndescription: "A skill."\n---\n\n# Title\n'
+    )
+    dest = tmp_path / "skills"
+    dest.mkdir()
+
+    with pytest.raises(install.SourceInvalid):
+        install.install_skill_from(src, dest, installed_by=_INSTALLED_BY)
