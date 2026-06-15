@@ -15,6 +15,7 @@ import versions` then `versions.SkillVersions(...)`). The headline types are:
 | `SkillSpec` | `versions` | dataclass | the per-skill constants that distinguish one published skill from another |
 | `SkillVersions` | `versions` | class | `list` / `diff` / `upgrade` over a published skill |
 | `PublishedSkill` | `install` | dataclass | a skill published as a release tarball (first-time install) |
+| `RoomInstalled` | `rooms` | dataclass | the outcome of `install_room` — config path + `room_paths` action |
 
 ## `manifest` — release manifest schema
 
@@ -75,6 +76,24 @@ import versions` then `versions.SkillVersions(...)`). The headline types are:
 | `PublishedSkill.download_base` | base URL for the repo's release-download assets |
 | `PublishedSkill.asset_url(tag)` / `.pointer_url()` | asset / pointer-manifest URLs |
 | `download_skill(spec, version, dest)` | resolve → download → verify → extract; returns the skill root |
+
+## `rooms` — add a room to a Soliplex stack
+
+Generic, template-agnostic, stdlib-only logic for wiring a room into a generated
+stack. The shared core behind both the `soliplex-template` skill's `add_room.py`
+and the `soliplex-concierge` installer; it edits `installation.yaml` line-based so
+comments and layout are preserved.
+
+| Member | Purpose |
+| --- | --- |
+| `validate_room_id(room_id)` | enforce the room-id / path-segment rule (`ROOM_ID_RE`); raises `AddRoomError` |
+| `resolve_project(project_dir)` | resolve + verify the stack root (has `COMPOSE_FILE` and `INSTALLATION_FILE`) |
+| `resolve_package_name(project, override)` | the stack's own package (inferred from `src/<pkg>/tools.py`) or `DEFAULT_PACKAGE_NAME` |
+| `add_room_path(text, room_id) -> (text, action)` | ensure `room_paths` loads the room; action is `ADDED` / `UNCHANGED` / `COVERED` |
+| `install_room(project, room_id, *, config_text, prompt_text=None, force=False, dry_run=False)` | write the room dir + config (+ optional prompt) and apply the `room_paths` edit |
+| `RoomInstalled(config_path, path_action)` | the `install_room` outcome (alias `RoomInstall` kept for back-compat) |
+| `AddRoomError` | user-facing error with message-factory classmethods |
+| `ADDED` / `UNCHANGED` / `COVERED` / `ROOMS_PARENT_ENTRY` | the `room_paths` action constants and the `./rooms` auto-discovery entry |
 
 ## `config` — load specs from `pyproject.toml`
 
