@@ -68,20 +68,39 @@ import versions` then `versions.SkillVersions(...)`). The headline types are:
 | `git_head_commit(repo_dir)` | the repo's current commit SHA, or `None` |
 | `build_skill(name, *, src, dist, commit=None, validate=True, generator=None)` | build one skill into `dist/<name>/`; optional `generator(out_dir)` runs between stamp and validate |
 
-## `install` — first-time install
+## `install` — install / upgrade a skill
+
+`install` and `upgrade` are distinct **policy** operations over a shared
+mechanical core: `install` is for putting a skill in place (it refuses to change
+an already-installed version); `upgrade` is for changing the version of one
+that is already there (it refuses a de-novo install). Each has a published
+variant (downloads) and a local `…_from` variant (an already-extracted dir).
 
 | Member | Purpose |
 | --- | --- |
 | `PublishedSkill(name, owner, repo, asset_tarball, pointer_tag, pointer_manifest="latest.json")` | a release-published skill spec |
 | `PublishedSkill.download_base` | base URL for the repo's release-download assets |
 | `PublishedSkill.asset_url(tag)` / `.pointer_url()` | asset / pointer-manifest URLs |
-| `download_skill(spec, version, dest, *, force=False)` | resolve → download → verify → extract; places the skill cleanly at `<dest>/<name>/` (raises `DestinationNotEmpty` on a non-empty target unless `force`) |
-| `install_skill(spec, version, dest, *, installed_by, defang=True, force=False, dry_run=False)` | download a published skill and install it under `dest/<name>`; `dry_run` reports the plan without fetching the asset |
-| `install_skill_from(source_root, dest, *, installed_by, defang=True, force=False, dry_run=False)` | install an already-extracted / local skill tree (offline / dev); validates the source (under its own name), never modifies it |
+| `download_skill(spec, version, dest, *, force=False)` | resolve → download → verify → extract; places the skill cleanly at `<dest>/<name>/` (raises `exceptions.DestinationNotEmpty` on a non-empty target unless `force`) |
+| `install_skill(spec, version, dest, *, installed_by, defang=True, force=False, dry_run=False)` | **install-only** published: refuses a different installed version (raising `exceptions.VersionMismatch`); `dry_run` skips the asset download for `latest` (downloads an explicit tag to classify) |
+| `install_skill_from(source_root, dest, *, installed_by, defang=True, force=False, dry_run=False)` | **install-only** from a local / already-extracted dir; validates the source (installed under its own name) and never modifies it |
+| `upgrade_skill(spec, version, dest, *, installed_by, defang=True, force=False, dry_run=False)` | **upgrade-only** published: refuses a de-novo install (raising `exceptions.NotInstalled`); otherwise as `install_skill` |
+| `upgrade_skill_from(source_root, dest, *, installed_by, defang=True, force=False, dry_run=False)` | **upgrade-only** from a local dir |
 | `defang_skill(skill_dir, *, installed_by, note=None)` | strip the self-management helper so the copy is safe inside a room agent |
-| `InstallStatus` | `ADDED` / `UNCHANGED` / `UPGRADED`, returned by `install_skill` / `install_skill_from` |
-| `SourceInvalid` | raised by `install_skill_from` when the source fails agent-skills validation |
-| `DestinationNotEmpty` | raised by `download_skill` when the target directory is non-empty and `force` is not set |
+| `is_defanged(skill_dir)` | whether a copy has been defanged (its `skill_versions.py` removed) — lets `upgrade` preserve a skill's defang state |
+| `InstallStatus` | `ADDED` / `UNCHANGED` / `REINSTALLED` (same commit, forced) / `UPGRADED` (different commit) |
+
+## `exceptions` — shared error types
+
+Exceptions raised from the library modules.
+
+| Member | Purpose |
+| --- | --- |
+| `PointerUnavailable` | skill has unresolvable `…-latest` pointer manifest  |
+| `DestinationNotEmpty` | `download_skill` target directory is non-empty |
+| `SourceInvalid` | a source dir failed agent-skills validation |
+| `VersionMismatch` | `install` refused: a *different* version is installed |
+| `NotInstalled` | `upgrade` refused: nothing is installed |
 
 ## `rooms` — add a room to a Soliplex stack
 
@@ -113,4 +132,4 @@ comments and layout are preserved.
 
 | Member | Purpose |
 | --- | --- |
-| `main(argv=None)` | dispatch `list` / `diff` / `upgrade` / `install` / `download` / `build`; returns an exit code. Installed as the `soliplex-skills` console script. `install` accepts `--source-dir` for a local install; `download` fetches a published skill to a local directory. |
+| `main(argv=None)` | dispatch `list` / `diff` / `upgrade` / `install` / `download` / `build`; returns an exit code. Installed as the `soliplex-skills` console script. `install` (de-novo, refuses a different version) and `upgrade` (refuses a de-novo install) both accept `--source-dir` for a local source; `download` fetches a published skill to a local directory. |

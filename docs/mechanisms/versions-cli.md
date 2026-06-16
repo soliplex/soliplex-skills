@@ -87,6 +87,14 @@ optional for `list` (it only adds the `installed` marker — the table and the
 `latest` marker render without it) and required for `diff`/`upgrade` unless
 `diff` is given two tags.
 
+`upgrade` also accepts `--source-dir` to upgrade from an already-extracted local
+directory instead of downloading, and refuses a de-novo install (use
+[`install`](installation.md#the-install-cli-command) when the skill is not yet
+present). Its `--defang` / `--no-defang` controls whether the upgraded copy keeps
+the self-management helper; by default it matches the installed skill's current
+state. See [installing and upgrading skills](installation.md) for `install` /
+`download` and the install-vs-upgrade distinction.
+
 ## CLI configuration
 
 Each skill records its [`SkillSpec`](../reference/api.md) once, as an array of

@@ -77,15 +77,17 @@ exit status:
 """
 
 _UPGRADE_DESCRIPTION = """\
-Download a published version and install it over --skill-dir.
+Install a published version (or a local --source-dir) over --skill-dir.
 
 TARGET is a tag or 'latest' (the default, resolved via the skill's
-pointer manifest). The download's sha256 is verified against the
-manifest when known; files are then replaced in place -- directories
-removed first -- so files deleted upstream do not linger. If the
-installed source_commit already matches TARGET it is a no-op unless
---force is given. --dry-run reports the plan on stdout without writing
-anything.\
+pointer manifest); the download's sha256 is verified against the
+manifest when known. Pass --source-dir to upgrade from an
+already-extracted local copy instead of downloading. Files are replaced
+in place -- directories removed first -- so files deleted upstream do
+not linger. If the installed source_commit already matches it is a
+no-op unless --force is given. Upgrade refuses a de-novo install (use
+'install' when the skill is not yet present). --dry-run reports the
+plan on stdout without writing anything.\
 """
 
 _UPGRADE_EPILOG = """\
@@ -236,12 +238,55 @@ def _cmd_diff(args: argparse.Namespace) -> int:
 
 
 def _cmd_upgrade(args: argparse.Namespace) -> int:
-    return SkillVersions(_resolve_spec(args)).upgrade(
-        args.skill_dir,
-        args.target,
-        force=args.force,
-        dry_run=args.dry_run,
+    if args.source_dir is not None and (
+        args.skill or args.project or args.pyproject
+    ):
+        print(
+            "soliplex-skills: error: --source-dir cannot be combined with "
+            "a published-skill selector (--skill/--project/--pyproject).",
+            file=sys.stderr,
+        )
+        return 2
+    # Default (--defang omitted): preserve the installed skill's defang state.
+    defang = (
+        install.is_defanged(args.skill_dir)
+        if args.defang is None
+        else args.defang
     )
+    dest = args.skill_dir.parent
+    try:
+        if args.source_dir is not None:
+            skill_root, status = install.upgrade_skill_from(
+                args.source_dir,
+                dest,
+                installed_by=_DEFAULT_INSTALLED_BY,
+                defang=defang,
+                force=args.force,
+                dry_run=args.dry_run,
+            )
+        else:
+            spec = _published_from_spec(_resolve_spec(args))
+            version = None if args.target == "latest" else args.target
+            skill_root, status = install.upgrade_skill(
+                spec,
+                version,
+                dest,
+                installed_by=_DEFAULT_INSTALLED_BY,
+                defang=defang,
+                force=args.force,
+                dry_run=args.dry_run,
+            )
+    except install.NotInstalled as exc:
+        print(f"soliplex-skills: error: {exc}", file=sys.stderr)
+        return 2
+    name = skill_root.name
+    if status is install.InstallStatus.UNCHANGED:
+        print(f"Already up to date: {name} at {skill_root}.")
+    elif args.dry_run:
+        print(f"Would upgrade {name} at {skill_root}.")
+    else:
+        print(f"Upgraded {name} at {skill_root}.")
+    return 0
 
 
 def _published_from_spec(spec: SkillSpec) -> install.PublishedSkill:
@@ -256,9 +301,12 @@ def _published_from_spec(spec: SkillSpec) -> install.PublishedSkill:
     )
 
 
+#: Default recorded in a defanged skill's note when no installer is named.
+_DEFAULT_INSTALLED_BY = "soliplex-skills"
+
 _INSTALL_MESSAGES = {
     install.InstallStatus.ADDED: "Installed {name} into {root}.",
-    install.InstallStatus.UPGRADED: "Upgraded {name} at {root}.",
+    install.InstallStatus.REINSTALLED: "Reinstalled {name} at {root}.",
     install.InstallStatus.UNCHANGED: "Already up to date: {name} at {root}.",
 }
 
@@ -278,34 +326,40 @@ def _cmd_download(args: argparse.Namespace) -> int:
 
 
 def _cmd_install(args: argparse.Namespace) -> int:
-    if args.source_dir is not None:
-        if args.skill or args.project or args.pyproject:
-            print(
-                "soliplex-skills: error: --source-dir cannot be combined with "
-                "a published-skill selector (--skill/--project/--pyproject).",
-                file=sys.stderr,
+    if args.source_dir is not None and (
+        args.skill or args.project or args.pyproject
+    ):
+        print(
+            "soliplex-skills: error: --source-dir cannot be combined with "
+            "a published-skill selector (--skill/--project/--pyproject).",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        if args.source_dir is not None:
+            skill_root, status = install.install_skill_from(
+                args.source_dir,
+                args.dest,
+                installed_by=args.installed_by,
+                defang=args.defang,
+                force=args.force,
+                dry_run=args.dry_run,
             )
-            return 2
-        skill_root, status = install.install_skill_from(
-            args.source_dir,
-            args.dest,
-            installed_by=args.installed_by,
-            defang=args.defang,
-            force=args.force,
-            dry_run=args.dry_run,
-        )
-    else:
-        spec = _published_from_spec(_resolve_spec(args))
-        version = None if args.target == "latest" else args.target
-        skill_root, status = install.install_skill(
-            spec,
-            version,
-            args.dest,
-            installed_by=args.installed_by,
-            defang=args.defang,
-            force=args.force,
-            dry_run=args.dry_run,
-        )
+        else:
+            spec = _published_from_spec(_resolve_spec(args))
+            version = None if args.target == "latest" else args.target
+            skill_root, status = install.install_skill(
+                spec,
+                version,
+                args.dest,
+                installed_by=args.installed_by,
+                defang=args.defang,
+                force=args.force,
+                dry_run=args.dry_run,
+            )
+    except install.VersionMismatch as exc:
+        print(f"soliplex-skills: error: {exc}", file=sys.stderr)
+        return 2
     name = skill_root.name
     if args.dry_run:
         print(f"Would install {name} into {skill_root}.")
@@ -411,10 +465,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Installed skill root (the directory holding SKILL.md).",
     )
     p_up.add_argument(
+        "--source-dir",
+        type=pathlib.Path,
+        help="Upgrade from this local skill directory (validated against the "
+        "agent-skills spec) instead of downloading; mutually exclusive with "
+        "the published-skill selectors.",
+    )
+    p_up.add_argument(
         "target",
         nargs="?",
         default="latest",
         help="Published version to install: a tag, or 'latest' (the default).",
+    )
+    p_up.add_argument(
+        "--defang",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Strip (--defang) or keep (--no-defang) the self-management "
+        "helper. Default: match the existing installed skill's state.",
     )
     p_up.add_argument(
         "--force",
@@ -458,9 +526,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_install.add_argument(
         "--installed-by",
-        default="soliplex-skills",
+        default=_DEFAULT_INSTALLED_BY,
         help="Name of the installer recorded in the defang note (only used "
-        "with --defang; default: 'soliplex-skills').",
+        f"with --defang; default: {_DEFAULT_INSTALLED_BY!r}).",
     )
     p_install.add_argument(
         "--defang",

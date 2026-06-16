@@ -9,6 +9,7 @@ from dataclasses import fields
 import pytest
 
 from soliplex_skills import _archive
+from soliplex_skills import exceptions
 from soliplex_skills import metadata
 from soliplex_skills import releases
 from soliplex_skills import versions
@@ -628,9 +629,28 @@ def test_upgrade_dry_run_writes_nothing(
     assert (installed / "references" / "a.md").read_text() == "old\n"
 
 
+def test_upgrade_refuses_de_novo(
+    monkeypatch, tmp_path, make_skill, make_tarball, capsys
+):
+    mapping, _ = _publish(
+        make_skill,
+        make_tarball,
+        tmp_path,
+        commit="bbbbbbb",
+        files={"references/a.md": "new\n"},
+    )
+    monkeypatch.setattr(releases, "fetch", _serve(mapping))
+    installed = tmp_path / "installed" / "soliplex-docs"  # not present
+
+    rc = versions.SkillVersions(_spec()).upgrade(installed, "latest")
+
+    assert rc == 1
+    assert "Nothing to upgrade" in capsys.readouterr().out
+
+
 def test_resolve_latest_pointer_unavailable(monkeypatch, tmp_path, make_skill):
     installed = make_skill("soliplex-docs", parent=tmp_path / "installed")
     monkeypatch.setattr(releases, "fetch", _serve({}))
 
-    with pytest.raises(versions.PointerUnavailable):
+    with pytest.raises(exceptions.PointerUnavailable):
         versions.SkillVersions(_spec()).upgrade(installed, "latest")

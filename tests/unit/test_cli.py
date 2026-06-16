@@ -8,8 +8,8 @@ import pytest
 
 from soliplex_skills import _archive
 from soliplex_skills import cli
+from soliplex_skills import exceptions
 from soliplex_skills import releases
-from soliplex_skills import versions
 
 _DOCS = {
     "name": "soliplex-docs",
@@ -314,7 +314,8 @@ def test_upgrade_help_documents_output_and_exit_codes(capsys):
 
     out = capsys.readouterr().out
     assert exc.value.code == 0
-    assert "install it over --skill-dir" in out  # explains the effect
+    assert "over --skill-dir" in out  # explains the effect
+    assert "--source-dir" in out  # documents the local-source option
     assert "exit status:" in out  # documents the return codes
     assert "0  upgraded, or already up to date" in out
 
@@ -472,9 +473,9 @@ def test_install_force_reinstalls_same_commit(
 
     out = capsys.readouterr().out
     assert rc == 0
-    assert "Upgraded soliplex-docs" in out
-    upgraded = dest / "soliplex-docs" / "references" / "a.md"
-    assert upgraded.read_text() == "hi\n"
+    assert "Reinstalled soliplex-docs" in out
+    reinstalled = dest / "soliplex-docs" / "references" / "a.md"
+    assert reinstalled.read_text() == "hi\n"
 
 
 def test_install_dry_run_writes_nothing(
@@ -633,6 +634,213 @@ def test_install_source_dir_conflicts_with_selector(tmp_path, capsys):
     assert "cannot be combined" in capsys.readouterr().err
 
 
+def test_install_source_dir_refuses_version_mismatch(
+    tmp_path, make_skill, capsys
+):
+    dest = tmp_path / "skills"
+    make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files={"references/a.md": "old\n"},
+        parent=dest,
+    )
+    src = make_skill(
+        "soliplex-docs",
+        commit="bbbbbbb",
+        files={"references/a.md": "new\n"},
+        parent=tmp_path / "src",
+    )
+
+    rc = cli.main(["install", "--source-dir", str(src), "--dest", str(dest)])
+
+    assert rc == 2
+    assert "use 'upgrade'" in capsys.readouterr().err
+    kept = dest / "soliplex-docs" / "references" / "a.md"
+    assert kept.read_text() == "old\n"
+
+
+def test_upgrade_source_dir_upgrades(tmp_path, make_skill, capsys):
+    dest = tmp_path / "skills"
+    installed = make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files={"references/a.md": "old\n"},
+        parent=dest,
+    )
+    src = make_skill(
+        "soliplex-docs",
+        commit="bbbbbbb",
+        files={"references/a.md": "new\n"},
+        parent=tmp_path / "src",
+    )
+
+    rc = cli.main(
+        ["upgrade", "--skill-dir", str(installed), "--source-dir", str(src)]
+    )
+
+    assert rc == 0
+    assert "Upgraded soliplex-docs" in capsys.readouterr().out
+    assert (installed / "references" / "a.md").read_text() == "new\n"
+
+
+def test_upgrade_source_dir_unchanged(tmp_path, make_skill, capsys):
+    dest = tmp_path / "skills"
+    installed = make_skill(
+        "soliplex-docs",
+        commit="bbbbbbb",
+        files={"references/a.md": "old\n"},
+        parent=dest,
+    )
+    src = make_skill(
+        "soliplex-docs",
+        commit="bbbbbbb",
+        files={"references/a.md": "new\n"},
+        parent=tmp_path / "src",
+    )
+
+    rc = cli.main(
+        ["upgrade", "--skill-dir", str(installed), "--source-dir", str(src)]
+    )
+
+    assert rc == 0
+    assert "Already up to date" in capsys.readouterr().out
+    assert (installed / "references" / "a.md").read_text() == "old\n"
+
+
+def test_upgrade_source_dir_dry_run(tmp_path, make_skill, capsys):
+    dest = tmp_path / "skills"
+    installed = make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files={"references/a.md": "old\n"},
+        parent=dest,
+    )
+    src = make_skill(
+        "soliplex-docs",
+        commit="bbbbbbb",
+        files={"references/a.md": "new\n"},
+        parent=tmp_path / "src",
+    )
+
+    rc = cli.main(
+        [
+            "upgrade",
+            "--skill-dir",
+            str(installed),
+            "--source-dir",
+            str(src),
+            "--dry-run",
+        ]
+    )
+
+    assert rc == 0
+    assert "Would upgrade soliplex-docs" in capsys.readouterr().out
+    assert (installed / "references" / "a.md").read_text() == "old\n"
+
+
+def test_upgrade_source_dir_refuses_de_novo(tmp_path, make_skill, capsys):
+    src = make_skill(
+        "soliplex-docs",
+        commit="bbbbbbb",
+        files={"references/a.md": "new\n"},
+        parent=tmp_path / "src",
+    )
+    installed = tmp_path / "skills" / "soliplex-docs"  # not present
+
+    rc = cli.main(
+        ["upgrade", "--skill-dir", str(installed), "--source-dir", str(src)]
+    )
+
+    assert rc == 2
+    assert "use 'install'" in capsys.readouterr().err
+
+
+def test_upgrade_source_dir_conflicts_with_selector(tmp_path, capsys):
+    rc = cli.main(
+        [
+            "upgrade",
+            "--skill-dir",
+            str(tmp_path / "skills" / "soliplex-docs"),
+            "--source-dir",
+            str(tmp_path / "src"),
+            "--skill",
+            "soliplex-docs",
+        ]
+    )
+
+    assert rc == 2
+    assert "cannot be combined" in capsys.readouterr().err
+
+
+_HELPER = {"references/a.md": "old\n", "scripts/skill_versions.py": "# h\n"}
+_NO_HELPER = {"references/a.md": "old\n"}
+
+
+def _upgrade_source(tmp_path, make_skill, *, installed_files, extra_args=()):
+    """Set up an installed + source skill and run `upgrade --source-dir`.
+
+    The installed copy carries *installed_files* (helper present or not); the
+    source is a newer commit that always bundles the helper, so the helper in
+    the *result* reflects the defang decision, not the source.
+    """
+    installed = make_skill(
+        "soliplex-docs",
+        commit="aaaaaaa",
+        files=installed_files,
+        parent=tmp_path / "skills",
+    )
+    src = make_skill(
+        "soliplex-docs",
+        commit="bbbbbbb",
+        files={"references/a.md": "new\n", "scripts/skill_versions.py": "#\n"},
+        parent=tmp_path / "src",
+    )
+    rc = cli.main(
+        ["upgrade", "--skill-dir", str(installed), "--source-dir", str(src)]
+        + list(extra_args)
+    )
+    return rc, installed
+
+
+def test_upgrade_default_preserves_self_managed_helper(tmp_path, make_skill):
+    rc, installed = _upgrade_source(
+        tmp_path, make_skill, installed_files=_HELPER
+    )
+
+    assert rc == 0
+    assert (installed / "scripts" / "skill_versions.py").is_file()
+
+
+def test_upgrade_default_keeps_defanged_skill_defanged(tmp_path, make_skill):
+    rc, installed = _upgrade_source(
+        tmp_path, make_skill, installed_files=_NO_HELPER
+    )
+
+    assert rc == 0
+    assert not (installed / "scripts" / "skill_versions.py").exists()
+
+
+def test_upgrade_defang_flag_strips_helper(tmp_path, make_skill):
+    rc, installed = _upgrade_source(
+        tmp_path, make_skill, installed_files=_HELPER, extra_args=["--defang"]
+    )
+
+    assert rc == 0
+    assert not (installed / "scripts" / "skill_versions.py").exists()
+
+
+def test_upgrade_no_defang_flag_keeps_helper(tmp_path, make_skill):
+    rc, installed = _upgrade_source(
+        tmp_path,
+        make_skill,
+        installed_files=_NO_HELPER,
+        extra_args=["--no-defang"],
+    )
+
+    assert rc == 0
+    assert (installed / "scripts" / "skill_versions.py").is_file()
+
+
 def test_download_writes_skill_dir(
     tmp_path, monkeypatch, make_skill, make_tarball, capsys
 ):
@@ -781,7 +989,7 @@ def test_diff_propagates_pointer_unavailable(
     installed = make_skill("soliplex-docs", parent=tmp_path / "installed")
     monkeypatch.setattr(releases, "fetch", _serve({}))
 
-    with pytest.raises(versions.PointerUnavailable):
+    with pytest.raises(exceptions.PointerUnavailable):
         cli.main(
             ["diff", "--pyproject", str(pp), "--skill-dir", str(installed)]
         )
