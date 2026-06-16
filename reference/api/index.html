@@ -895,17 +895,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#rooms-add-a-room-to-a-soliplex-stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>rooms</code> — add a room to a Soliplex stack
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#config-load-specs-from-pyprojecttoml" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1061,17 +1050,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#rooms-add-a-room-to-a-soliplex-stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>rooms</code> — add a room to a Soliplex stack
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#config-load-specs-from-pyprojecttoml" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1211,12 +1189,6 @@ import versions</code> then <code>versions.SkillVersions(...)</code>). The headl
 <td><code>install</code></td>
 <td>dataclass</td>
 <td>a skill published as a release tarball (first-time install)</td>
-</tr>
-<tr>
-<td><code>RoomInstalled</code></td>
-<td><code>rooms</code></td>
-<td>dataclass</td>
-<td>the outcome of <code>install_room</code> — config path + <code>room_paths</code> action</td>
 </tr>
 </tbody>
 </table>
@@ -1454,53 +1426,6 @@ variant (downloads) and a local <code>…_from</code> variant (an already-extrac
 <tr>
 <td><code>NotInstalled</code></td>
 <td><code>upgrade</code> refused: nothing is installed</td>
-</tr>
-</tbody>
-</table>
-<h2 id="rooms-add-a-room-to-a-soliplex-stack"><code>rooms</code> — add a room to a Soliplex stack<a class="headerlink" href="#rooms-add-a-room-to-a-soliplex-stack" title="Permanent link">&para;</a></h2>
-<p>Generic, template-agnostic, stdlib-only logic for wiring a room into a generated
-stack. The shared core behind both the <code>soliplex-template</code> skill's <code>add_room.py</code>
-and the <code>soliplex-concierge</code> installer; it edits <code>installation.yaml</code> line-based so
-comments and layout are preserved.</p>
-<table>
-<thead>
-<tr>
-<th>Member</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>validate_room_id(room_id)</code></td>
-<td>enforce the room-id / path-segment rule (<code>ROOM_ID_RE</code>); raises <code>AddRoomError</code></td>
-</tr>
-<tr>
-<td><code>resolve_project(project_dir)</code></td>
-<td>resolve + verify the stack root (has <code>COMPOSE_FILE</code> and <code>INSTALLATION_FILE</code>)</td>
-</tr>
-<tr>
-<td><code>resolve_package_name(project, override)</code></td>
-<td>the stack's own package (inferred from <code>src/&lt;pkg&gt;/tools.py</code>) or <code>DEFAULT_PACKAGE_NAME</code></td>
-</tr>
-<tr>
-<td><code>add_room_path(text, room_id) -&gt; (text, action)</code></td>
-<td>ensure <code>room_paths</code> loads the room; action is <code>ADDED</code> / <code>UNCHANGED</code> / <code>COVERED</code></td>
-</tr>
-<tr>
-<td><code>install_room(project, room_id, *, config_text, prompt_text=None, force=False, dry_run=False)</code></td>
-<td>write the room dir + config (+ optional prompt) and apply the <code>room_paths</code> edit</td>
-</tr>
-<tr>
-<td><code>RoomInstalled(config_path, path_action)</code></td>
-<td>the <code>install_room</code> outcome (alias <code>RoomInstall</code> kept for back-compat)</td>
-</tr>
-<tr>
-<td><code>AddRoomError</code></td>
-<td>user-facing error with message-factory classmethods</td>
-</tr>
-<tr>
-<td><code>ADDED</code> / <code>UNCHANGED</code> / <code>COVERED</code> / <code>ROOMS_PARENT_ENTRY</code></td>
-<td>the <code>room_paths</code> action constants and the <code>./rooms</code> auto-discovery entry</td>
 </tr>
 </tbody>
 </table>
