@@ -705,7 +705,7 @@
   <span class="md-ellipsis">
     
   
-  Installing a published skill
+  Installing and upgrading skills
 
     
   </span>
@@ -1155,6 +1155,13 @@ overrides the default upward search for <code>pyproject.toml</code>. <code>--ski
 optional for <code>list</code> (it only adds the <code>installed</code> marker — the table and the
 <code>latest</code> marker render without it) and required for <code>diff</code>/<code>upgrade</code> unless
 <code>diff</code> is given two tags.</p>
+<p><code>upgrade</code> also accepts <code>--source-dir</code> to upgrade from an already-extracted local
+directory instead of downloading, and refuses a de-novo install (use
+<a href="../installation/#the-install-cli-command"><code>install</code></a> when the skill is not yet
+present). Its <code>--defang</code> / <code>--no-defang</code> controls whether the upgraded copy keeps
+the self-management helper; by default it matches the installed skill's current
+state. See <a href="../installation/">installing and upgrading skills</a> for <code>install</code> /
+<code>download</code> and the install-vs-upgrade distinction.</p>
 <h2 id="cli-configuration">CLI configuration<a class="headerlink" href="#cli-configuration" title="Permanent link">&para;</a></h2>
 <p>Each skill records its <a href="../../reference/api/"><code>SkillSpec</code></a> once, as an array of
 tables. The <code>rolling_prefix</code> is expanded into the rolling-tag regex:</p>
@@ -1248,13 +1255,13 @@ see <a href="../../#how-the-skills-use-it">How the skills use it</a>.</p>
         
         
           
-          <a href="../installation/" class="md-footer__link md-footer__link--next" aria-label="Next: Installing a published skill">
+          <a href="../installation/" class="md-footer__link md-footer__link--next" aria-label="Next: Installing and upgrading skills">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Installing a published skill
+                Installing and upgrading skills
               </div>
             </div>
             <div class="md-footer__button md-icon">

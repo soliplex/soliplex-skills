@@ -30,7 +30,7 @@
     
     
       
-        <title>Installing a published skill - Soliplex Skills</title>
+        <title>Installing and upgrading skills - Soliplex Skills</title>
       
     
     
@@ -86,7 +86,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#installing-a-published-skill" class="md-skip">
+        <a href="#installing-and-upgrading-skills" class="md-skip">
           Skip to content
         </a>
       
@@ -122,7 +122,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Installing a published skill
+              Installing and upgrading skills
             
           </span>
         </div>
@@ -601,7 +601,7 @@
   <span class="md-ellipsis">
     
   
-  Installing a published skill
+  Installing and upgrading skills
 
     
   </span>
@@ -618,7 +618,7 @@
   <span class="md-ellipsis">
     
   
-  Installing a published skill
+  Installing and upgrading skills
 
     
   </span>
@@ -644,21 +644,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#resolving-and-downloading" class="md-nav__link">
+  <a href="#the-pieces" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Resolving and downloading
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#installing-into-a-stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Installing into a stack
+        The pieces
       </span>
     </span>
   </a>
@@ -677,10 +666,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#api" class="md-nav__link">
+  <a href="#from-python" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        API
+        From Python
       </span>
     </span>
   </a>
@@ -942,21 +931,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#resolving-and-downloading" class="md-nav__link">
+  <a href="#the-pieces" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Resolving and downloading
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#installing-into-a-stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Installing into a stack
+        The pieces
       </span>
     </span>
   </a>
@@ -975,10 +953,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#api" class="md-nav__link">
+  <a href="#from-python" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        API
+        From Python
       </span>
     </span>
   </a>
@@ -1088,89 +1066,74 @@
   
 
 
-<h1 id="installing-a-published-skill">Installing a published skill<a class="headerlink" href="#installing-a-published-skill" title="Permanent link">&para;</a></h1>
-<p>Where <a href="../versions-cli/">managing an installed skill</a> upgrades a copy that is
-<em>already</em> on disk, this mechanism covers the <strong>first-time install</strong>: resolving
-a published skill to an asset, downloading and verifying it, and extracting its
-skill root.</p>
-<p>On top of that low-level fetch it offers <strong>installing a skill into a Soliplex
-stack</strong>: idempotently placing it under a destination directory (add / upgrade /
-no-op), and optionally <em>defanging</em> it — stripping the bundled self-management
-helper — so the copy is safe to run inside a room agent. The source can be a
-freshly downloaded release <strong>or</strong> a local directory (an offline / development
-copy), and download is a separate step from install — so a caller can fetch
-several skills up front and only install them once every download has
-succeeded.</p>
-<h2 id="resolving-and-downloading">Resolving and downloading<a class="headerlink" href="#resolving-and-downloading" title="Permanent link">&para;</a></h2>
-<p>A skill is identified by a small spec (owner, repo, asset tarball, pointer
-tag). To install it:</p>
-<ol>
-<li><strong>Resolve the target.</strong></li>
-<li>No explicit version → read the skill's <code>…-latest</code>
-     <a href="../../overview/release-model/#the-manifest">pointer manifest</a> and use its
-     <code>asset_url</code> (and its recorded <code>sha256</code>).</li>
-<li>An explicit tag → build the asset URL by name from the tag.</li>
-<li><strong>Download</strong> the tarball.</li>
-<li><strong>Verify</strong> its <code>sha256</code> against the manifest when one is known.</li>
-<li><strong>Extract</strong> it in a scratch directory and <strong>place</strong> the skill cleanly at
-   <code>&lt;dest&gt;/&lt;name&gt;/</code> (the returned path). A non-empty target is left untouched
-   and <code>DestinationNotEmpty</code> is raised unless <code>force=True</code>; the check runs
-   before any network access, so a refused download touches nothing.</li>
-</ol>
-<h2 id="installing-into-a-stack">Installing into a stack<a class="headerlink" href="#installing-into-a-stack" title="Permanent link">&para;</a></h2>
-<p>The core is <strong><code>install_skill_from</code></strong>, which places an already-extracted skill tree
-(<code>source_root</code>, a directory holding <code>SKILL.md</code>) under <code>&lt;dest&gt;/&lt;name&gt;/</code>,
-idempotently. It first <strong>validates</strong> the source against the agent-skills spec
-(raising <code>SourceInvalid</code> otherwise); the validator requires the directory name
-to equal the skill's <code>name:</code>, so the install always lands under the skill's own
-name and cannot produce a spec-invalid directory:</p>
-<ol>
-<li><strong>Short-circuit if current.</strong> If a copy already exists and its <code>SKILL.md</code>
-   <code>source_commit</code> matches the source's, it is a <strong>no-op</strong> (<code>UNCHANGED</code>) unless
-   <code>force=True</code>.</li>
-<li><strong>Install over</strong> any existing copy in place (directories removed first, so
-   files deleted upstream do not linger), or copy it in fresh.</li>
-<li><strong>Defang</strong> (optional) the <em>installed copy</em> — never <code>source_root</code>, so a local
-   source directory is left byte-for-byte intact (see below).</li>
-</ol>
-<p><code>source_root</code> may be a release extracted by <code>download_skill</code> or a local working
-copy, so <code>install_skill_from</code> is the offline / development install path directly.</p>
-<p><strong><code>install_skill</code></strong> is the convenience wrapper for a published skill: it
-downloads + extracts into a temp directory and hands that root to
-<code>install_skill_from</code>. Splitting the two means a caller can <code>download_skill</code> several
-skills up front and only <code>install_skill_from</code> them once every download has succeeded
-(no half-installed stack on a late download failure).</p>
-<p>Both return <code>(skill_root, status)</code>, where <code>status</code> is an <strong><code>InstallStatus</code></strong>:
-<code>ADDED</code> (no copy was there), <code>UPGRADED</code> (replaced an existing copy), or
-<code>UNCHANGED</code> (no-op).</p>
-<p><code>dry_run=True</code> reports the plan — the <code>status</code> that <em>would</em> result — and writes
-nothing. For <code>install_skill_from</code> it is fully offline and exact (it compares the local
-commits). For <code>install_skill</code> it <strong>does not download the asset</strong>: it resolves
-the target commit from the <code>…-latest</code> pointer (a small manifest) for an exact
-status, but an explicit tag carries no pointer, so a present skill is reported
-<code>UPGRADED</code> (it cannot prove <code>UNCHANGED</code> without the asset) — use
-<code>install_skill_from(…, dry_run=True)</code> for an exact, fully offline preview.</p>
+<h1 id="installing-and-upgrading-skills">Installing and upgrading skills<a class="headerlink" href="#installing-and-upgrading-skills" title="Permanent link">&para;</a></h1>
+<p>This mechanism gets a published skill (or a local copy) onto disk and into a
+Soliplex stack. It is built from a few composable pieces — <strong>download</strong>,
+<strong>install</strong>, <strong>upgrade</strong>, and <strong>defang</strong> — each a library function (see the
+<a href="../../reference/api/">API reference</a>) and a
+<code>soliplex-skills</code> subcommand.</p>
+<p>Where <a href="../versions-cli/">managing an installed skill</a> is a skill driving its own
+bundled <code>skill_versions.py</code> shim, this is the outside-in view: a tool placing
+and updating skills in a stack.</p>
+<h2 id="the-pieces">The pieces<a class="headerlink" href="#the-pieces" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>download</strong> — resolve a skill's release asset (via its <code>…-latest</code>
+  <a href="../../overview/release-model/#the-manifest">pointer manifest</a>, or an explicit
+  tag), verify the <code>sha256</code>, extract it, and place the tree cleanly at
+  <code>&lt;dest&gt;/&lt;name&gt;/</code>. This is the network step, kept separate so a caller can
+  fetch several skills up front and only touch the stack once every download has
+  succeeded. A non-empty target is refused (<code>DestinationNotEmpty</code>) unless
+  <code>force</code> — checked <em>before</em> any network access, so a refused download touches
+  nothing.</li>
+<li><strong>install</strong> — put a skill in place: <code>ADDED</code> when the target is fresh,
+  <code>UNCHANGED</code> (a no-op) or <code>REINSTALLED</code> (under <code>force</code>, re-laying the identical
+  commit to wipe an admin's stray edits) when the <strong>same</strong> version is already
+  there, and <strong>refused with <code>VersionMismatch</code></strong> when a <strong>different</strong> version is
+  installed — changing versions is <code>upgrade</code>'s job.</li>
+<li><strong>upgrade</strong> — change an installed skill's version: <code>UPGRADED</code> for a different
+  commit, <code>UNCHANGED</code> / <code>REINSTALLED</code> for a matching one, and <strong>refused with
+  <code>NotInstalled</code></strong> when nothing is installed — a first-time install is
+  <code>install</code>'s job.</li>
+<li><strong>defang</strong> — strip the bundled <code>scripts/skill_versions.py</code> self-management
+  helper so a copy running inside a room agent can't reach upgrade machinery
+  (detailed <a href="#defanging-a-stack-installed-skill">below</a>).</li>
+</ul>
+<p>A few properties hold across both install and upgrade:</p>
+<ul>
+<li><strong>Source</strong> — published release or a local directory. The published functions
+  download first; the <code>…_from</code> variants take an already-extracted directory (an
+  offline / development copy). Either way the source is <strong>validated</strong> against the
+  agent-skills spec (<code>SourceInvalid</code> otherwise) and installed under its own
+  <code>name:</code>, so the result is always a spec-valid <code>&lt;dest&gt;/&lt;name&gt;/</code>. A local source
+  is never modified — defanging acts on the installed copy.</li>
+<li><strong>Status</strong> — each returns <code>(skill_root, InstallStatus)</code>: one of <code>ADDED</code>,
+  <code>UNCHANGED</code>, <code>REINSTALLED</code>, <code>UPGRADED</code>.</li>
+<li><strong>Dry-run</strong> — reports the plan and writes nothing. The <code>…_from</code> variants are
+  exact and fully offline (they compare local commits); the published variants
+  skip the asset download when the target commit is knowable from the <code>latest</code>
+  pointer, fetching only an explicit tag (to an auto-removed temp dir) to
+  classify it.</li>
+</ul>
 <h2 id="defanging-a-stack-installed-skill">Defanging a stack-installed skill<a class="headerlink" href="#defanging-a-stack-installed-skill" title="Permanent link">&para;</a></h2>
 <p>A skill bundles a <code>scripts/skill_versions.py</code>
 <a href="../versions-cli/">self-management helper</a>, but a copy running inside a room
-agent cannot usefully drive it — the room agent is not a coding agent and the
-copy is updated from the <em>outside</em>. <code>defang_skill</code> makes such a copy safe:</p>
+agent cannot safely drive it — the room agent serves requests from non-admin
+users. <code>defang_skill</code> makes such a copy safe:</p>
 <ul>
-<li>it removes <code>scripts/skill_versions.py</code> (and any <code>scripts/__pycache__</code>,
-  then <code>scripts/</code> itself if now empty);</li>
-<li>it rewrites the <code>SKILL.md</code> self-management section to a short note. The
-  section is located by scanning the <code>##</code> headings and finding the one whose
-  body mentions <code>skill_versions.py</code> (the heading is preserved); if no section
-  matches, only the script files are removed and the markdown is left untouched.</li>
+<li>it removes <code>scripts/skill_versions.py</code> (and any <code>scripts/__pycache__</code>, then
+  <code>scripts/</code> itself if now empty);</li>
+<li>it rewrites the <code>SKILL.md</code> self-management section to a short note. The section
+  is located by scanning the <code>##</code> headings and finding the one whose body
+  mentions <code>skill_versions.py</code> (the heading is preserved); if no section matches,
+  only the script files are removed and the markdown is left untouched.</li>
 </ul>
 <p>The replacement text is built by <code>format_defang_note(heading, installed_by=…)</code>;
-callers can override it with the <code>note</code> argument. This is the counterpart to
-the <a href="../../adoption/quickstart/#document-the-shim-in-skillmd"><code>## Managing this skill</code> epilogue</a>
+callers can override it with the <code>note</code> argument. This is the counterpart to the
+<a href="../../adoption/quickstart/#document-the-shim-in-skillmd"><code>## Managing this skill</code> epilogue</a>
 a skill author appends to <code>SKILL.md</code> — write that section keeping its <code>##</code>
-heading and <code>skill_versions.py</code> reference, and the installer can find and
-defang it.</p>
-<h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
-<p>The <a href="../../reference/api/"><code>install</code> module</a>:</p>
+heading and <code>skill_versions.py</code> reference, and the installer can find and defang
+it.</p>
+<h2 id="from-python">From Python<a class="headerlink" href="#from-python" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">soliplex_skills</span><span class="w"> </span><span class="kn">import</span> <span class="n">install</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">docs</span> <span class="o">=</span> <span class="n">install</span><span class="o">.</span><span class="n">PublishedSkill</span><span class="p">(</span>
@@ -1181,43 +1144,24 @@ defang it.</p>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">pointer_tag</span><span class="o">=</span><span class="s2">&quot;docs-latest&quot;</span><span class="p">,</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Low-level: resolve → download → verify → extract to &lt;dest&gt;/&lt;name&gt;/.</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Download + place the raw skill tree at staging/soliplex-docs/.</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">root</span> <span class="o">=</span> <span class="n">install</span><span class="o">.</span><span class="n">download_skill</span><span class="p">(</span><span class="n">docs</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="n">staging</span><span class="p">)</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="c1"># High-level: install into a stack at &lt;dest&gt;/soliplex-docs/, defanged.</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="c1"># Install the latest published build into the stack, defanged.</span>
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">root</span><span class="p">,</span> <span class="n">status</span> <span class="o">=</span> <span class="n">install</span><span class="o">.</span><span class="n">install_skill</span><span class="p">(</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">docs</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="n">skills_dir</span><span class="p">,</span> <span class="n">installed_by</span><span class="o">=</span><span class="s2">&quot;my-installer&quot;</span>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="p">)</span>
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="c1"># Offline / dev: install from a local skill directory (source left intact).</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">root</span><span class="p">,</span> <span class="n">status</span> <span class="o">=</span> <span class="n">install</span><span class="o">.</span><span class="n">install_skill_from</span><span class="p">(</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="c1"># Upgrade an already-installed skill from a local directory.</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">root</span><span class="p">,</span> <span class="n">status</span> <span class="o">=</span> <span class="n">install</span><span class="o">.</span><span class="n">upgrade_skill_from</span><span class="p">(</span>
 </span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="n">local_dir</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="n">skills_dir</span><span class="p">,</span> <span class="n">installed_by</span><span class="o">=</span><span class="s2">&quot;my-installer&quot;</span>
 </span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="p">)</span>
 </span></code></pre></div>
-<ul>
-<li><strong><code>PublishedSkill</code></strong> — the spec, with a <code>download_base</code> property for the
-  repo's release-download URLs.</li>
-<li><strong><code>download_skill(spec, version, dest, *, force=False)</code></strong> — resolve →
-  download → verify → extract; places the skill cleanly at <code>&lt;dest&gt;/&lt;name&gt;/</code> and
-  returns it. Raises <code>DestinationNotEmpty</code> on a non-empty target unless <code>force</code>.</li>
-<li><strong><code>install_skill_from(source_root, dest, *, installed_by, defang=True,
-  force=False, dry_run=False)</code></strong> — install an already-extracted / local skill
-  tree into <code>&lt;dest&gt;/&lt;name&gt;/</code>. The source is validated (<code>SourceInvalid</code> on
-  failure) and installed under its own <code>name:</code>; it is never modified. Returns
-  <code>(skill_root, InstallStatus)</code>.</li>
-<li><strong><code>install_skill(spec, version, dest, *, installed_by, defang=True,
-  force=False, dry_run=False)</code></strong> — download a published skill and hand it to
-  <code>install_skill_from</code>. <code>dry_run</code> reports the plan without fetching the asset. Note
-  <code>defang</code> <strong>defaults to <code>True</code></strong> here (the <code>install</code> CLI command defaults it
-  off — see below).</li>
-<li><strong><code>defang_skill(skill_dir, *, installed_by, note=None)</code></strong> — strip the helper
-  and rewrite the self-management section in place.</li>
-<li><strong><code>format_defang_note(heading, *, installed_by)</code></strong> — render the default
-  defang note.</li>
-<li><strong><code>InstallStatus</code></strong> — <code>ADDED</code> / <code>UPGRADED</code> / <code>UNCHANGED</code>.</li>
-</ul>
+<p>The <a href="../../reference/api/">API reference</a> lists
+every function and signature. Note <code>defang</code> <strong>defaults to <code>True</code></strong> in the
+library (the CLI defaults it off — see below).</p>
 <h2 id="the-install-cli-command">The <code>install</code> CLI command<a class="headerlink" href="#the-install-cli-command" title="Permanent link">&para;</a></h2>
-<p><code>install</code> is also available from the console script, reading the skill's
+<p><code>install</code> is available from the console script, reading the skill's
 <a href="../versions-cli/#cli-configuration"><code>[tool.soliplex-skills]</code> stanza</a> so the
 constants need not be repeated:</p>
 <div class="language-console highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="gp"># </span>Install<span class="w"> </span>latest<span class="w"> </span>into<span class="w"> </span>./skills/&lt;name&gt;/<span class="w"> </span><span class="o">(</span>keeps<span class="w"> </span>the<span class="w"> </span>helper<span class="w"> </span>by<span class="w"> </span>default<span class="o">)</span>:
@@ -1227,27 +1171,27 @@ constants need not be repeated:</p>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="go">soliplex-skills install --skill soliplex-docs --dest skills --defang \</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="go">    --installed-by my-installer --dry-run</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="gp"># </span>Reinstall<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>tag<span class="w"> </span>even<span class="w"> </span><span class="k">if</span><span class="w"> </span>the<span class="w"> </span>installed<span class="w"> </span>commit<span class="w"> </span>already<span class="w"> </span>matches:
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="go">soliplex-skills install --skill soliplex-docs --dest skills v0.68 --force</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="gp"># </span>Re-lay<span class="w"> </span>the<span class="w"> </span>same<span class="w"> </span>version<span class="w"> </span><span class="k">in</span><span class="w"> </span>place,<span class="w"> </span>wiping<span class="w"> </span>stray<span class="w"> </span><span class="nb">local</span><span class="w"> </span>edits:
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="go">soliplex-skills install --skill soliplex-docs --dest skills --force</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="gp"># </span>Install<span class="w"> </span>from<span class="w"> </span>a<span class="w"> </span><span class="nb">local</span><span class="w"> </span>copy<span class="w"> </span><span class="o">(</span>offline<span class="w"> </span>/<span class="w"> </span>dev<span class="o">)</span><span class="w"> </span>instead<span class="w"> </span>of<span class="w"> </span>downloading:
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="go">soliplex-skills install --source-dir ./soliplex-docs --dest skills --defang</span>
 </span></code></pre></div>
-<p>Unlike the <a href="#api"><code>install_skill</code> API</a>, the CLI's <strong><code>--defang</code> defaults to
-off</strong> — pass it explicitly to strip the helper. <code>--installed-by</code> (default
-<code>soliplex-skills</code>) is only used by the defang note. <code>--force</code> reinstalls even
-when the commit matches; <code>--dry-run</code> reports the plan without writing.
-<code>--source-dir</code> installs an already-extracted local copy instead of downloading;
-it is validated against the agent-skills spec (and installed under its own
-name) and is mutually exclusive with the published-skill selectors (<code>--skill</code> /
-<code>--project</code> / <code>--pyproject</code>).</p>
+<p>Two behaviors aren't obvious from <code>--help</code>: the CLI's <strong><code>--defang</code> defaults to
+off</strong> (the opposite of the <a href="#from-python">library default</a>), and <code>install</code>
+<strong>refuses to overwrite a different installed version</strong> — exit 2, pointing at
+<code>upgrade</code>; <code>--force</code> only re-lays the <em>same</em> version.</p>
+<p><code>upgrade</code> is the counterpart — <code>soliplex-skills upgrade --skill-dir &lt;installed&gt;
+[--source-dir &lt;dir&gt;]</code> — changing the version and refusing a de-novo install. Its
+<code>--defang</code> defaults to <strong>matching the installed skill's current state</strong> (pass
+<code>--defang</code> / <code>--no-defang</code> to override). See
+<a href="../versions-cli/">the <code>upgrade</code> command</a>.</p>
 <h2 id="the-download-cli-command">The <code>download</code> CLI command<a class="headerlink" href="#the-download-cli-command" title="Permanent link">&para;</a></h2>
 <p><code>download</code> fetches a published skill and extracts it to <code>&lt;dest&gt;/&lt;name&gt;/</code> —
-verified against the manifest, but <strong>not</strong> defanged (the raw published
-artifact). A non-empty target directory is left untouched unless <code>--force</code> is
-given. It pairs with <code>install --source-dir</code> to separate the network step from
-the stack edit:</p>
-<div class="language-console highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp"># </span>Fetch<span class="w"> </span>every<span class="w"> </span>skill<span class="w"> </span>first<span class="p">;</span><span class="w"> </span>install<span class="w"> </span>only<span class="w"> </span><span class="k">if</span><span class="w"> </span>all<span class="w"> </span>downloads<span class="w"> </span>succeed:
+verified against the manifest, but <strong>not</strong> defanged (the raw published artifact).
+It pairs with <code>install --source-dir</code> to split the network step from the stack
+edit, so every skill is in hand before any is installed:</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp"># </span>Fetch<span class="w"> </span>every<span class="w"> </span>skill<span class="w"> </span>first<span class="p">;</span><span class="w"> </span>install<span class="w"> </span>only<span class="w"> </span>once<span class="w"> </span>all<span class="w"> </span>downloads<span class="w"> </span>succeed:
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">soliplex-skills download --skill soliplex-docs --dest staging</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="go">soliplex-skills download --skill soliplex-concierge-room --dest staging</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="go">soliplex-skills install --source-dir staging/soliplex-docs --dest skills --defang</span>
@@ -1256,12 +1200,12 @@ the stack edit:</p>
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Out of scope (for now)</p>
-<p>Even <code>install_skill</code> only <em>places and defangs</em> a skill — it does not
-<strong>wire</strong> it into a target Soliplex stack by editing <code>pyproject.toml</code>,
-<code>installation.yaml</code>, and room configs, as the <code>soliplex-concierge</code>
-installer does. That stack-editing logic is <strong>intentionally left out</strong> of
-this library; it belongs in a later, installer-specific module built on top
-of these primitives.</p>
+<p>These commands only <em>place, upgrade, and defang</em> a skill — they do not
+<strong>wire</strong> it into a Soliplex stack by editing <code>pyproject.toml</code>,
+<code>installation.yaml</code>, and room configs, as the <code>soliplex-concierge</code> installer
+does. That stack-editing logic is <strong>intentionally left out</strong> of this
+library; it belongs in a later, installer-specific layer built on top of
+these primitives.</p>
 </div>
 
 

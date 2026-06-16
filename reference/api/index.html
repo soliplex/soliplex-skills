@@ -588,7 +588,7 @@
   <span class="md-ellipsis">
     
   
-  Installing a published skill
+  Installing and upgrading skills
 
     
   </span>
@@ -873,10 +873,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#install-first-time-install" class="md-nav__link">
+  <a href="#install-install-upgrade-a-skill" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>install</code> — first-time install
+        <code>install</code> — install / upgrade a skill
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exceptions-shared-error-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>exceptions</code> — shared error types
       </span>
     </span>
   </a>
@@ -1028,10 +1039,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#install-first-time-install" class="md-nav__link">
+  <a href="#install-install-upgrade-a-skill" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>install</code> — first-time install
+        <code>install</code> — install / upgrade a skill
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exceptions-shared-error-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>exceptions</code> — shared error types
       </span>
     </span>
   </a>
@@ -1343,7 +1365,12 @@ whole skill tree, normalizing out the per-build <code>source_commit</code> stamp
 </tr>
 </tbody>
 </table>
-<h2 id="install-first-time-install"><code>install</code> — first-time install<a class="headerlink" href="#install-first-time-install" title="Permanent link">&para;</a></h2>
+<h2 id="install-install-upgrade-a-skill"><code>install</code> — install / upgrade a skill<a class="headerlink" href="#install-install-upgrade-a-skill" title="Permanent link">&para;</a></h2>
+<p><code>install</code> and <code>upgrade</code> are distinct <strong>policy</strong> operations over a shared
+mechanical core: <code>install</code> is for putting a skill in place (it refuses to change
+an already-installed version); <code>upgrade</code> is for changing the version of one
+that is already there (it refuses a de-novo install). Each has a published
+variant (downloads) and a local <code>…_from</code> variant (an already-extracted dir).</p>
 <table>
 <thead>
 <tr>
@@ -1366,31 +1393,67 @@ whole skill tree, normalizing out the per-build <code>source_commit</code> stamp
 </tr>
 <tr>
 <td><code>download_skill(spec, version, dest, *, force=False)</code></td>
-<td>resolve → download → verify → extract; places the skill cleanly at <code>&lt;dest&gt;/&lt;name&gt;/</code> (raises <code>DestinationNotEmpty</code> on a non-empty target unless <code>force</code>)</td>
+<td>resolve → download → verify → extract; places the skill cleanly at <code>&lt;dest&gt;/&lt;name&gt;/</code> (raises <code>exceptions.DestinationNotEmpty</code> on a non-empty target unless <code>force</code>)</td>
 </tr>
 <tr>
 <td><code>install_skill(spec, version, dest, *, installed_by, defang=True, force=False, dry_run=False)</code></td>
-<td>download a published skill and install it under <code>dest/&lt;name&gt;</code>; <code>dry_run</code> reports the plan without fetching the asset</td>
+<td><strong>install-only</strong> published: refuses a different installed version (raising <code>exceptions.VersionMismatch</code>); <code>dry_run</code> skips the asset download for <code>latest</code> (downloads an explicit tag to classify)</td>
 </tr>
 <tr>
 <td><code>install_skill_from(source_root, dest, *, installed_by, defang=True, force=False, dry_run=False)</code></td>
-<td>install an already-extracted / local skill tree (offline / dev); validates the source (under its own name), never modifies it</td>
+<td><strong>install-only</strong> from a local / already-extracted dir; validates the source (installed under its own name) and never modifies it</td>
+</tr>
+<tr>
+<td><code>upgrade_skill(spec, version, dest, *, installed_by, defang=True, force=False, dry_run=False)</code></td>
+<td><strong>upgrade-only</strong> published: refuses a de-novo install (raising <code>exceptions.NotInstalled</code>); otherwise as <code>install_skill</code></td>
+</tr>
+<tr>
+<td><code>upgrade_skill_from(source_root, dest, *, installed_by, defang=True, force=False, dry_run=False)</code></td>
+<td><strong>upgrade-only</strong> from a local dir</td>
 </tr>
 <tr>
 <td><code>defang_skill(skill_dir, *, installed_by, note=None)</code></td>
 <td>strip the self-management helper so the copy is safe inside a room agent</td>
 </tr>
 <tr>
-<td><code>InstallStatus</code></td>
-<td><code>ADDED</code> / <code>UNCHANGED</code> / <code>UPGRADED</code>, returned by <code>install_skill</code> / <code>install_skill_from</code></td>
+<td><code>is_defanged(skill_dir)</code></td>
+<td>whether a copy has been defanged (its <code>skill_versions.py</code> removed) — lets <code>upgrade</code> preserve a skill's defang state</td>
 </tr>
 <tr>
-<td><code>SourceInvalid</code></td>
-<td>raised by <code>install_skill_from</code> when the source fails agent-skills validation</td>
+<td><code>InstallStatus</code></td>
+<td><code>ADDED</code> / <code>UNCHANGED</code> / <code>REINSTALLED</code> (same commit, forced) / <code>UPGRADED</code> (different commit)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="exceptions-shared-error-types"><code>exceptions</code> — shared error types<a class="headerlink" href="#exceptions-shared-error-types" title="Permanent link">&para;</a></h2>
+<p>Exceptions raised from the library modules.</p>
+<table>
+<thead>
+<tr>
+<th>Member</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PointerUnavailable</code></td>
+<td>skill has unresolvable <code>…-latest</code> pointer manifest</td>
 </tr>
 <tr>
 <td><code>DestinationNotEmpty</code></td>
-<td>raised by <code>download_skill</code> when the target directory is non-empty and <code>force</code> is not set</td>
+<td><code>download_skill</code> target directory is non-empty</td>
+</tr>
+<tr>
+<td><code>SourceInvalid</code></td>
+<td>a source dir failed agent-skills validation</td>
+</tr>
+<tr>
+<td><code>VersionMismatch</code></td>
+<td><code>install</code> refused: a <em>different</em> version is installed</td>
+</tr>
+<tr>
+<td><code>NotInstalled</code></td>
+<td><code>upgrade</code> refused: nothing is installed</td>
 </tr>
 </tbody>
 </table>
@@ -1475,7 +1538,7 @@ comments and layout are preserved.</p>
 <tbody>
 <tr>
 <td><code>main(argv=None)</code></td>
-<td>dispatch <code>list</code> / <code>diff</code> / <code>upgrade</code> / <code>install</code> / <code>download</code> / <code>build</code>; returns an exit code. Installed as the <code>soliplex-skills</code> console script. <code>install</code> accepts <code>--source-dir</code> for a local install; <code>download</code> fetches a published skill to a local directory.</td>
+<td>dispatch <code>list</code> / <code>diff</code> / <code>upgrade</code> / <code>install</code> / <code>download</code> / <code>build</code>; returns an exit code. Installed as the <code>soliplex-skills</code> console script. <code>install</code> (de-novo, refuses a different version) and <code>upgrade</code> (refuses a de-novo install) both accept <code>--source-dir</code> for a local source; <code>download</code> fetches a published skill to a local directory.</td>
 </tr>
 </tbody>
 </table>

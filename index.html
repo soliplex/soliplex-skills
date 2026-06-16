@@ -668,7 +668,7 @@
   <span class="md-ellipsis">
     
   
-  Installing a published skill
+  Installing and upgrading skills
 
     
   </span>
@@ -1005,6 +1005,9 @@ versioned filesystem skill needs:</p>
 <ul>
 <li><strong><code>versions</code></strong> — <code>list</code> / <code>diff</code> / <code>upgrade</code> a published skill against its
   GitHub releases, driven by a per-skill <a href="reference/api/"><code>SkillSpec</code></a>.</li>
+<li><strong><code>install</code></strong> — <code>download</code>, <strong>install</strong> / <strong>upgrade</strong> a published or local
+  skill into a stack, and <strong>defang</strong> it for room-agent use (see
+  <a href="mechanisms/installation/">Installing and upgrading skills</a>).</li>
 <li><strong><code>build</code></strong> — assemble a skill into <code>dist/&lt;name&gt;/</code>: copy the source tree,
   stamp <code>SKILL.md</code> with the source commit, and validate it (with an optional
   <code>generator</code> hook for build-time content).</li>
