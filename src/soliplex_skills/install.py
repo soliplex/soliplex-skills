@@ -1,13 +1,19 @@
-"""Download, install, and defang a published skill.
+"""Download, install, upgrade, and defang a published skill.
 
-Where :mod:`soliplex_skills.versions` manages a skill that is *already*
-installed (upgrading it in place), this module covers the first-time install:
+This module covers getting a skill onto disk and into a stack:
 
-- resolve a published skill to an asset
-- download and verify it
-- extract its skill root
-- optionally strip the self-management helper and its documentation, so the
-  copy is safe to run inside a Soliplex room agent.
+- resolve a published skill to an asset, download + verify + extract it
+  (:func:`download_skill`)
+
+- **install** a skill from a published release or a local directory:
+  :func:`install_skill` / :func:`install_skill_from`
+
+- **upgrade** a skill from a published release or a local directory:
+  :func:`upgrade_skill` / :func:`upgrade_skill_from`
+
+- **defang** a skill, stripping the self-management helper and its
+  documentation so the copy is safe to run inside a Soliplex room agent:
+  (:func:`defang_skill`)
 """
 
 from __future__ import annotations
@@ -21,9 +27,16 @@ import shutil
 import skills_ref
 
 from soliplex_skills import _archive
+from soliplex_skills import exceptions
 from soliplex_skills import metadata
 from soliplex_skills import releases
-from soliplex_skills.versions import PointerUnavailable
+
+# Backward-compatibility aliases
+DestinationNotEmpty = exceptions.DestinationNotEmpty
+NotInstalled = exceptions.NotInstalled
+PointerUnavailable = exceptions.PointerUnavailable
+SourceInvalid = exceptions.SourceInvalid
+VersionMismatch = exceptions.VersionMismatch
 
 _GITHUB = "https://github.com"
 
@@ -135,14 +148,6 @@ class PublishedSkill:
         )
 
 
-class DestinationNotEmpty(ValueError):
-    """A download target directory already exists and is not empty."""
-
-    def __init__(self, target: pathlib.Path):
-        self.target = target
-        super().__init__(f"{target} is not empty; pass force to replace it")
-
-
 def download_skill(
     spec: PublishedSkill,
     version: str | None,
@@ -238,22 +243,90 @@ def defang_skill(
     skill_md.write_text("".join(lines), encoding="utf-8")
 
 
+def is_defanged(skill_dir: pathlib.Path) -> bool:
+    """Whether *skill_dir* has been defanged (its helper removed).
+
+    Keys on the marker :func:`defang_skill` removes: a defanged copy has no
+    ``scripts/skill_versions.py``. Lets an upgrade preserve a skill's existing
+    defang state by default rather than guess it.
+    """
+    return not (skill_dir / "scripts" / "skill_versions.py").is_file()
+
+
 class InstallStatus(enum.StrEnum):
-    """Statuses returned by :func:`install_skill`."""
+    """Statuses returned by the install / upgrade functions."""
 
     ADDED = "added"
     UNCHANGED = "unchanged"
+    REINSTALLED = "reinstalled"
     UPGRADED = "upgraded"
 
 
-class SourceInvalid(ValueError):
-    """An invalid skill was handed to :func:`install_skill_from`."""
+def _status_from_commits(
+    target_exists: bool,
+    source_commit: str | None,
+    installed_commit: str | None,
+    *,
+    force: bool,
+) -> InstallStatus:
+    """Classify the outcome from the target's existence and the two commits.
 
-    def __init__(self, source_root: pathlib.Path, errors: list[str]):
-        self.source_root = source_root
-        self.errors = errors
-        joined = "\n".join(errors)
-        super().__init__(f"{source_root} is not a valid skill:\n{joined}")
+    ``ADDED`` when nothing is there; for a present skill, ``REINSTALLED`` /
+    ``UNCHANGED`` when the source's commit matches the installed one (force
+    distinguishing them), else ``UPGRADED``.
+    """
+    if not target_exists:
+        return InstallStatus.ADDED
+    if source_commit and source_commit == installed_commit:
+        return InstallStatus.REINSTALLED if force else InstallStatus.UNCHANGED
+    return InstallStatus.UPGRADED
+
+
+def _classify(
+    source_root: pathlib.Path, dest: pathlib.Path, *, force: bool
+) -> tuple[pathlib.Path, InstallStatus]:
+    """Validate *source_root* and classify installing it at ``<dest>/<name>``.
+
+    The skill is **validated** against the agent-skills spec first
+    (:class:`SourceInvalid` on failure); the validator guarantees the
+    directory name equals the skill's ``name``, so the target is always
+    ``<dest>/<name>`` and the install cannot produce a spec-invalid directory.
+    """
+    errors = skills_ref.validate(source_root)
+    if errors:
+        raise SourceInvalid(source_root, errors)
+    skill_root = dest / source_root.name
+    installed_commit = (
+        metadata.read_source_commit(skill_root / "SKILL.md")
+        if skill_root.exists()
+        else None
+    )
+    source_commit = metadata.read_source_commit(source_root / "SKILL.md")
+    status = _status_from_commits(
+        skill_root.exists(), source_commit, installed_commit, force=force
+    )
+    return skill_root, status
+
+
+def _place(
+    source_root: pathlib.Path,
+    skill_root: pathlib.Path,
+    *,
+    installed_by: str,
+    defang: bool,
+) -> None:
+    """Copy *source_root* onto *skill_root* (in place if it exists), defanging.
+
+    *source_root* is never modified: when *defang* is true the self-management
+    helper is stripped from the installed *copy*, so a local source directory
+    is left byte-for-byte intact.
+    """
+    if skill_root.exists():
+        _archive.install_over(source_root, skill_root)
+    else:
+        shutil.copytree(source_root, skill_root)
+    if defang:
+        defang_skill(skill_root, installed_by=installed_by)
 
 
 def install_skill_from(
@@ -265,56 +338,52 @@ def install_skill_from(
     force: bool = False,
     dry_run: bool = False,
 ) -> tuple[pathlib.Path, InstallStatus]:
-    """Install an already-extracted *source_root* skill tree under *dest*.
+    """Install a local skill tree under ``<dest>/<name>`` (**install-only**).
 
-    *source_root* is a directory containing ``SKILL.md`` (a published tarball
-    extracted by :func:`download_skill`, or a local working copy). It is
-    **validated** against the agent-skills spec first
-    (:class:`SourceInvalid` on failure) and installed over
-    ``<dest>/<name>/``, where *name* is the skill's own ``name`` -- the
-    validator guarantees it equals the source directory's name, so the install
-    cannot produce a spec-invalid directory. Use this directly to install from
-    a local directory (offline / development), or via :func:`install_skill` for
-    a published one.
-
-    Returns ``(skill_root, status)`` as :func:`install_skill` does. When the
-    target exists and its ``metadata.source_commit`` already matches the
-    source's, the skill is returned :attr:`~InstallStatus.UNCHANGED` unless
-    *force* is true. *dry_run* reports the plan without writing anything.
-
-    *source_root* is never modified: when *defang* is true (the default), the
-    self-management helper is stripped from the installed *copy*, so a local
-    source directory is left byte-for-byte intact.
+    *source_root* is a directory holding ``SKILL.md`` (a published tarball
+    extracted by :func:`download_skill`, or a local working copy). Returns
+    ``(skill_root, status)``: :attr:`~InstallStatus.ADDED` for a fresh install,
+    :attr:`~InstallStatus.UNCHANGED` when the same commit is already there, or
+    :attr:`~InstallStatus.REINSTALLED` when *force* re-lays it (wiping stray
+    local edits). A *different* commit is refused with :class:`VersionMismatch`
+    -- changing versions is :func:`upgrade_skill_from`'s job. *dry_run* reports
+    the plan without writing anything.
     """
-    errors = skills_ref.validate(source_root)
-    if errors:
-        raise SourceInvalid(source_root, errors)
+    skill_root, status = _classify(source_root, dest, force=force)
+    if status is InstallStatus.UPGRADED:
+        raise VersionMismatch(skill_root)
+    if not dry_run and status is not InstallStatus.UNCHANGED:
+        _place(
+            source_root, skill_root, installed_by=installed_by, defang=defang
+        )
+    return skill_root, status
 
-    skill_root = dest / source_root.name
-    installed_commit = None
-    if skill_root.exists():
-        installed_commit = metadata.read_source_commit(skill_root / "SKILL.md")
-    source_commit = metadata.read_source_commit(source_root / "SKILL.md")
 
-    if (
-        skill_root.exists()
-        and source_commit
-        and source_commit == installed_commit
-        and not force
-    ):
-        return skill_root, InstallStatus.UNCHANGED
+def upgrade_skill_from(
+    source_root: pathlib.Path,
+    dest: pathlib.Path,
+    *,
+    installed_by: str,
+    defang: bool = True,
+    force: bool = False,
+    dry_run: bool = False,
+) -> tuple[pathlib.Path, InstallStatus]:
+    """Upgrade an installed skill from a local source (**upgrade-only**).
 
-    upgrading = skill_root.exists()
-    status = InstallStatus.UPGRADED if upgrading else InstallStatus.ADDED
-    if dry_run:
-        return skill_root, status
-
-    if upgrading:
-        _archive.install_over(source_root, skill_root)
-    else:
-        shutil.copytree(source_root, skill_root)
-    if defang:
-        defang_skill(skill_root, installed_by=installed_by)
+    Like :func:`install_skill_from`, but for an already-installed skill: a
+    *different* commit is :attr:`~InstallStatus.UPGRADED`, a matching one is
+    :attr:`~InstallStatus.UNCHANGED` (or :attr:`~InstallStatus.REINSTALLED`
+    under *force*). A de-novo install is refused with :class:`NotInstalled` --
+    that is :func:`install_skill_from`'s job. *dry_run* reports the plan
+    without writing anything.
+    """
+    skill_root, status = _classify(source_root, dest, force=force)
+    if status is InstallStatus.ADDED:
+        raise NotInstalled(skill_root)
+    if not dry_run and status is not InstallStatus.UNCHANGED:
+        _place(
+            source_root, skill_root, installed_by=installed_by, defang=defang
+        )
     return skill_root, status
 
 
@@ -335,6 +404,34 @@ def _resolve_target_commit(
     return pointer.source_commit
 
 
+def _published_dry_run(
+    spec: PublishedSkill,
+    version: str | None,
+    dest: pathlib.Path,
+    *,
+    force: bool,
+) -> tuple[pathlib.Path, InstallStatus] | None:
+    """Classify a published install/upgrade dry-run without the asset.
+
+    Returns ``(skill_root, status)`` when the target commit is knowable (the
+    ``latest`` pointer, a small JSON), or ``None`` when it is not (an explicit
+    tag) -- in which case the caller must download to classify exactly.
+    """
+    target_commit = _resolve_target_commit(spec, version)
+    if target_commit is None:
+        return None
+    skill_root = dest / spec.name
+    installed_commit = (
+        metadata.read_source_commit(skill_root / "SKILL.md")
+        if skill_root.exists()
+        else None
+    )
+    status = _status_from_commits(
+        skill_root.exists(), target_commit, installed_commit, force=force
+    )
+    return skill_root, status
+
+
 def install_skill(
     spec: PublishedSkill,
     version: str | None,
@@ -345,44 +442,25 @@ def install_skill(
     force: bool = False,
     dry_run: bool = False,
 ) -> tuple[pathlib.Path, InstallStatus]:
-    """Download *spec* and install it under *dest*.
+    """Download *spec* and install it under *dest* (**install-only**).
 
-    The skill is downloaded + extracted into a temporary directory, then
-    installed over ``<dest>/<skill-name>/`` via
-    :func:`install_skill_from` (which defangs the installed copy when
-    *defang* is true).
+    Downloads + extracts into a temp directory and hands it to
+    :func:`install_skill_from`, so a *different* installed version is refused
+    with :class:`VersionMismatch` (use :func:`upgrade_skill`). Returns
+    ``(skill_root, status)``.
 
-    Returns ``(skill_root, status)`` where *status* is one of
-    :attr:`InstallStatus.ADDED`, :attr:`InstallStatus.UNCHANGED`, or
-    :attr:`InstallStatus.UPGRADED`. An existing skill whose
-    ``metadata.source_commit`` already matches the published target is
-    returned unchanged unless *force* is true.
-
-    *dry_run* reports the plan **without downloading the asset**: it resolves
-    the target commit from the ``latest`` pointer (so the status is exact),
-    but an explicit tag carries no pointer, so a present skill is reported
-    :attr:`~InstallStatus.UPGRADED` (``UNCHANGED`` can't be proven without the
-    asset). For a fully offline, exact dry-run, use
-    :func:`install_skill_from` with ``dry_run=True``.
+    *dry_run* reports the plan **without downloading the asset** when the
+    target commit is knowable from the ``latest`` pointer; an explicit tag
+    carries no pointer, so it is downloaded to classify exactly (into an
+    auto-removed temp dir).
     """
-    skill_root = dest / spec.name
     if dry_run:
-        installed_commit = None
-        if skill_root.exists():
-            installed_commit = metadata.read_source_commit(
-                skill_root / "SKILL.md"
-            )
-        target_commit = _resolve_target_commit(spec, version)
-        if (
-            skill_root.exists()
-            and target_commit
-            and target_commit == installed_commit
-            and not force
-        ):
-            return skill_root, InstallStatus.UNCHANGED
-        if skill_root.exists():
-            return skill_root, InstallStatus.UPGRADED
-        return skill_root, InstallStatus.ADDED
+        cheap = _published_dry_run(spec, version, dest, force=force)
+        if cheap is not None:
+            skill_root, status = cheap
+            if status is InstallStatus.UPGRADED:
+                raise VersionMismatch(skill_root)
+            return skill_root, status
 
     with _archive.temp_dest() as tmp:
         new_root = download_skill(spec, version, tmp)
@@ -392,4 +470,44 @@ def install_skill(
             installed_by=installed_by,
             defang=defang,
             force=force,
+            dry_run=dry_run,
+        )
+
+
+def upgrade_skill(
+    spec: PublishedSkill,
+    version: str | None,
+    dest: pathlib.Path,
+    *,
+    installed_by: str,
+    defang: bool = True,
+    force: bool = False,
+    dry_run: bool = False,
+) -> tuple[pathlib.Path, InstallStatus]:
+    """Download *spec* and upgrade the skill under *dest* (**upgrade-only**).
+
+    The published counterpart of :func:`upgrade_skill_from`: downloads +
+    extracts into a temp directory and hands it to that function, so a de-novo
+    install is refused with :class:`NotInstalled` (use :func:`install_skill`).
+    Returns ``(skill_root, status)``. *dry_run* behaves as in
+    :func:`install_skill` (pointer-cheap for ``latest``; downloads an explicit
+    tag to classify).
+    """
+    if dry_run:
+        cheap = _published_dry_run(spec, version, dest, force=force)
+        if cheap is not None:
+            skill_root, status = cheap
+            if status is InstallStatus.ADDED:
+                raise NotInstalled(skill_root)
+            return skill_root, status
+
+    with _archive.temp_dest() as tmp:
+        new_root = download_skill(spec, version, tmp)
+        return upgrade_skill_from(
+            new_root,
+            dest,
+            installed_by=installed_by,
+            defang=defang,
+            force=force,
+            dry_run=dry_run,
         )

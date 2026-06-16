@@ -27,6 +27,9 @@ versioned filesystem skill needs:
 
 - **`versions`** — `list` / `diff` / `upgrade` a published skill against its
   GitHub releases, driven by a per-skill [`SkillSpec`](reference/api.md).
+- **`install`** — `download`, **install** / **upgrade** a published or local
+  skill into a stack, and **defang** it for room-agent use (see
+  [Installing and upgrading skills](mechanisms/installation.md)).
 - **`build`** — assemble a skill into `dist/<name>/`: copy the source tree,
   stamp `SKILL.md` with the source commit, and validate it (with an optional
   `generator` hook for build-time content).

@@ -19,18 +19,15 @@ import skills_ref
 from skills_ref.parser import parse_frontmatter
 
 from soliplex_skills import _archive
+from soliplex_skills import exceptions
+from soliplex_skills import install
 from soliplex_skills import metadata
 from soliplex_skills import releases
 
 _GITHUB = "https://github.com"
 
-
-class PointerUnavailable(LookupError):
-    """A skill's ``…-latest`` pointer manifest could not be resolved."""
-
-    def __init__(self, pointer_tag: str):
-        self.pointer_tag = pointer_tag
-        super().__init__(f"could not resolve the {pointer_tag!r} pointer")
+# Backward-compatibility aliases
+PointerUnavailable = exceptions.PointerUnavailable
 
 
 def _tree_text(root: pathlib.Path) -> dict[str, list[str]]:
@@ -358,38 +355,53 @@ class SkillVersions:
         force: bool = False,
         dry_run: bool = False,
     ) -> int:
-        """Download *target* and install it over *installed_path*.
+        """Download *target* and install it over *installed_path* in place.
 
-        The tarball's sha256 is verified against the manifest when known, and
-        files are replaced in place -- directories removed first -- so files
-        deleted upstream do not linger. A no-op when the installed
-        ``source_commit`` already matches *target* unless *force* is set;
-        *dry_run* reports the plan without writing. Returns a status code.
+        This is the basis for every released skill's ``skill_versions.py``
+        self-management, so its contract is stable. It delegates to the shared
+        :func:`soliplex_skills.install.upgrade_skill` primitive with
+        ``defang=False`` -- a self-managing skill keeps its own
+        ``skill_versions.py``. A no-op when the installed ``source_commit``
+        already matches *target* unless *force* is set; *dry_run* reports the
+        plan without writing. Returns ``0`` on success, ``1`` when nothing is
+        installed to upgrade.
         """
         installed = metadata.read_source_commit(installed_path / "SKILL.md")
-        with _archive.temp_dest() as dest:
-            tag, asset_url, sha256 = self._resolve_target(target)
-            new_root = self._fetch_skill_root(asset_url, sha256, dest)
-            new_commit = metadata.read_source_commit(new_root / "SKILL.md")
-
-            if new_commit and new_commit == installed and not force:
-                print(
-                    f"Already up to date: installed commit {installed} "
-                    f"matches {tag}. Use force=True to reinstall."
-                )
-                return 0
-
-            summary = (
-                f"{tag} (commit {new_commit or 'unknown'}; "
-                f"installed {installed or 'unknown'})"
+        spec = install.PublishedSkill(
+            name=self.spec.skill_name,
+            owner=self.spec.owner,
+            repo=self.spec.repo,
+            asset_tarball=self.spec.asset_tarball,
+            pointer_tag=self.spec.pointer_tag,
+            pointer_manifest=self.spec.pointer_manifest,
+        )
+        version = None if target == "latest" else target
+        try:
+            skill_root, status = install.upgrade_skill(
+                spec,
+                version,
+                installed_path.parent,
+                installed_by=self.spec.skill_name,
+                defang=False,
+                force=force,
+                dry_run=dry_run,
             )
-            if dry_run:
-                print(f"Would upgrade to {summary}.")
-                return 0
+        except install.NotInstalled:
+            print(
+                f"Nothing to upgrade: no skill installed at {installed_path}."
+            )
+            return 1
 
-            _archive.install_over(new_root, installed_path)
-
-        print(f"Upgraded {self.spec.skill_name} to {summary}.")
+        name = self.spec.skill_name
+        if status is install.InstallStatus.UNCHANGED:
+            print(
+                f"Already up to date: {name} at {skill_root} "
+                f"(commit {installed or 'unknown'})."
+            )
+        elif dry_run:
+            print(f"Would upgrade {name} at {skill_root}.")
+        else:
+            print(f"Upgraded {name} at {skill_root}.")
         return 0
 
 
