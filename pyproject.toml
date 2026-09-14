@@ -16,7 +16,7 @@ version = "0.7dev0"
 description = "Shared release/upgrade infrastructure for Soliplex filesystem skills."
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 authors = [{ name = "Soliplex" }]
 keywords = ["soliplex", "agentskills", "skills", "release", "github"]
 
