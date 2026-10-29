@@ -422,7 +422,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version-file: "pyproject.toml"
+          python-version: "3.13"
 
       # The 'dev' group provides 'skills-ref' (skill validation), which
       # build_skill.py uses via soliplex-skills.
